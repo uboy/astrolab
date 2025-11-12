@@ -16,7 +16,7 @@ from utils.constants import (
 )
 from utils.user_helpers import get_user_name, get_user, save_user
 from utils.message_helpers import return_to_main_menu
-from keyboards.menus import main_menu
+from keyboards.menus import main_menu, payment_type_menu
 import asyncio
 import random
 
@@ -64,16 +64,8 @@ async def choose_amount(message: Message, state: FSMContext):
 
     await state.update_data(amount=int(message.text))
 
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=BTN_PAYMENT_METHOD_PIGEONS), KeyboardButton(text=BTN_PAYMENT_METHOD_FINGER)],
-            [KeyboardButton(text=BTN_PAYMENT_METHOD_COINS)],
-            [KeyboardButton(text=BTN_CANCEL)]
-        ],
-        resize_keyboard=True
-    )
     await state.set_state(PaymentStates.choosing_method)
-    await message.answer("Выберите способ оплаты:", reply_markup=keyboard)
+    await message.answer("Выберите способ оплаты:", reply_markup=payment_type_menu)
 
 
 # -----------------------------
@@ -141,7 +133,7 @@ async def fallback(message: Message):
         return  # позволяем другим роутерам поймать
 
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME_LOWER)
-    services = "\n- " + "\n- ".join([
+    services = "\n- ".join([
         BTN_HOROSCOPE, BTN_COMPATIBILITY, BTN_NUMEROLOGY, BTN_PHOTO_DESTINY,
         BTN_CURSE_REMOVAL, BTN_CURSE_DETECTION, BTN_PAYMENT, BTN_ABOUT
     ])

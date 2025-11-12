@@ -14,6 +14,7 @@ from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import main_menu, payment_menu
 from datetime import datetime, timezone
+from handlers.base import PaymentStates
 
 router = Router()
 
@@ -51,7 +52,7 @@ async def start_numerology(message: Message, state: FSMContext):
 @router.message(NumerologyStates.choosing_name_source)
 async def choose_name_source(message: Message, state: FSMContext):
     text = message.text.strip().lower()
-    
+    profile_name = message.from_user.first_name or "не указано"
     if text in [BTN_YES.lower(), "yes", "да"]:
         # Используем имя из профиля
         user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
@@ -69,7 +70,8 @@ async def choose_name_source(message: Message, state: FSMContext):
             reply_markup=ReplyKeyboardRemove()
         )
     else:
-        await message.answer("⚠️ Пожалуйста, выберите 'Да' или 'Нет'.")
+        await message.answer("⚠️ Пожалуйста, выберите 'Да' или 'Нет'. Использовать имя из профиля ({profile_name}) иначе можешь ввести своё?"
+                             .format(profile_name=profile_name))
 
 
 @router.message(NumerologyStates.waiting_name)
@@ -110,7 +112,8 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     user, has_limit = await check_user_limit(message.from_user.id)
     if not has_limit:
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
-        await state.clear()
+        #await state.clear()
+        await state.set_state(PaymentStates.choosing_amount)
         return
 
     await state.set_state(NumerologyStates.waiting_ollama_response)
@@ -144,7 +147,7 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     # Отправка ответа
     await message.answer(
         format_response_with_balance(response, user),
-        reply_markup=main_menu
+        reply_markup=main_menu, parse_mode='HTML'
     )
     await state.clear()
 
