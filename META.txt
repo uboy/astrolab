@@ -1,5 +1,5 @@
-step: 03
-date: 2025-11-13
-member: dev_mazur
-commit: 0a9db90
+step: 04
+date: 2025-11-18
+member: dev_sankov
+commit: dc2869b
 subject: add logging and add VL model for images

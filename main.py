@@ -7,16 +7,26 @@ import asyncio
 bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# Регистрируем роутеры
-dp.include_router(horoscope.router)
-dp.include_router(compatibility.router)
-dp.include_router(numerology.router)
-dp.include_router(photo_destiny.router)
-dp.include_router(curse.router)
-dp.include_router(curse_detection.router)
-dp.include_router(admin.router)
-dp.include_router(base.router)
+async def main():
+    await bot.delete_webhook(drop_pending_updates=True)
+    # Регистрируем роутеры
+    dp.include_router(horoscope.router)
+    dp.include_router(compatibility.router)
+    dp.include_router(numerology.router)
+    dp.include_router(photo_destiny.router)
+    dp.include_router(curse.router)
+    dp.include_router(curse_detection.router)
+    dp.include_router(admin.router)
+    dp.include_router(base.router)
+    print("🚀 Бот запущен!")
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    print("🚀 Бот запущен!")
-    asyncio.run(dp.start_polling(bot))
+    try:
+        asyncio.run(main())
+    except RuntimeError as e:
+        if "asyncio.run() cannot be called from a running event loop" in str(e):
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(main())
+        else:
+            raise
