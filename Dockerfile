@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем код
 COPY . .
 
-# Гарантируем наличие каталога для данных/логов, если потребуется
-RUN mkdir -p data
+# Гарантируем наличие каталога для данных/логов
+RUN mkdir -p data logs
 
 CMD ["python", "main.py"]

@@ -24,6 +24,18 @@ BTN_USER_STATS = "Статистика пользователей"
 BTN_RESET_LIMITS = "Сброс лимитов"
 BTN_ADMIN_UNSUB = "Админ: отписать пользователя"
 BTN_ADMIN_SET_TIME = "Админ: время рассылки"
+BTN_ADMIN_BROADCAST = "Админ: отправить подписчикам"
+BTN_ADMIN_USERS = "Пользователи"
+BTN_ADMIN_NEXT_PAGE = "▶️ Следующая страница"
+BTN_ADMIN_PREV_PAGE = "◀️ Предыдущая страница"
+BTN_ADMIN_BACK_USERS = "↩️ Назад к пользователям"
+BTN_ADMIN_USER_INFO = "ℹ️ Профиль/баланс"
+BTN_ADMIN_USER_HISTORY = "📜 История действий"
+BTN_ADMIN_USER_RESET = "🔄 Сброс лимитов"
+BTN_ADMIN_USER_SUBSCRIBE = "✅ Подписать"
+BTN_ADMIN_USER_UNSUBSCRIBE = "🚫 Отписать"
+BTN_ADMIN_USER_SET_TIME = "⏰ Время подписки"
+BTN_ADMIN_USER_DELETE = "🗑️ Удалить пользователя"
 
 # Кнопки оплаты
 BTN_PAYMENT_AMOUNT_5 = "5"
@@ -72,6 +84,18 @@ ADMIN_BUTTONS = {
     BTN_CANCEL,
     BTN_ADMIN_UNSUB,
     BTN_ADMIN_SET_TIME,
+    BTN_ADMIN_BROADCAST,
+    BTN_ADMIN_USERS,
+    BTN_ADMIN_NEXT_PAGE,
+    BTN_ADMIN_PREV_PAGE,
+    BTN_ADMIN_BACK_USERS,
+    BTN_ADMIN_USER_INFO,
+    BTN_ADMIN_USER_HISTORY,
+    BTN_ADMIN_USER_RESET,
+    BTN_ADMIN_USER_SUBSCRIBE,
+    BTN_ADMIN_USER_UNSUBSCRIBE,
+    BTN_ADMIN_USER_SET_TIME,
+    BTN_ADMIN_USER_DELETE,
 }
 
 ALL_MENU_BUTTONS = MAIN_MENU_BUTTONS | ADMIN_BUTTONS
@@ -161,6 +185,8 @@ MSG_ADMIN_UNSUB_OK = "✅ Пользователь {user_id} отписан от
 MSG_ADMIN_TIME_OK = "⏰ Время рассылки для {user_id} установлено: {time}."
 MSG_ADMIN_INVALID_TIME = "⚠️ Введите время в формате ЧЧ:ММ (12:00–15:00)."
 MSG_ADMIN_NO_USER = "Пользователь с ID {user_id} не найден."
+MSG_ADMIN_BROADCAST_ASK = "Введите текст уведомления для всех подписчиков:"
+MSG_ADMIN_BROADCAST_DONE = "✅ Уведомление отправлено подписчикам: {count} чел."
 
 # Сообщения о проклятиях
 MSG_LUCK_RESET_RESULT = "🍀 Ваша полоса невезения выглядит так:\n\n{curse}\n\nПерезапустим удачу?"
