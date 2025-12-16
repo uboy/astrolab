@@ -7,7 +7,7 @@ from utils.constants import (
     BTN_COMPATIBILITY, MSG_COMPATIBILITY_GREETING, MSG_INVALID_NAMES_FORMAT,
     MSG_NO_FREE_PAID, MSG_OLLAMA_COMPATIBILITY_ERROR, DEFAULT_USER_NAME
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name
+from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import main_menu, payment_menu
 from handlers.base import PaymentStates
@@ -21,6 +21,7 @@ class CompatibilityStates(StatesGroup):
 
 @router.message(F.text == BTN_COMPATIBILITY, StateFilter(None))
 async def start_compatibility(message: Message, state: FSMContext):
+    await get_user(message.from_user.id, message.from_user)
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
     await message.answer(MSG_COMPATIBILITY_GREETING.format(name=user_name))
     await state.set_state(CompatibilityStates.waiting_names)
@@ -33,7 +34,7 @@ async def get_names(message: Message, state: FSMContext, bot: Bot):
         await message.answer(MSG_INVALID_NAMES_FORMAT)
         return
 
-    user, has_limit = await check_user_limit(message.from_user.id)
+    user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
     if not has_limit:
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
         #await state.clear()
@@ -62,7 +63,12 @@ async def get_names(message: Message, state: FSMContext, bot: Bot):
         response = MSG_OLLAMA_COMPATIBILITY_ERROR
 
     # Списание лимита
-    user = await decrement_user_limit(message.from_user.id)
+    user = await decrement_user_limit(
+        message.from_user.id,
+        feature="compatibility",
+        details={"name1": name1, "name2": name2},
+        telegram_user=message.from_user,
+    )
 
     # Отправка ответа
     await message.answer(

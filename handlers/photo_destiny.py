@@ -7,7 +7,7 @@ from utils.constants import (
     BTN_PHOTO_DESTINY, MSG_PHOTO_DESTINY_GREETING, MSG_PHOTO_INVALID,
     MSG_NO_FREE_PAID, MSG_OLLAMA_PHOTO_ERROR, DEFAULT_USER_NAME
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name
+from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import main_menu, payment_menu
 import base64
@@ -22,6 +22,7 @@ class PhotoDestinyStates(StatesGroup):
 
 @router.message(F.text == BTN_PHOTO_DESTINY, StateFilter(None))
 async def start_photo_destiny(message: Message, state: FSMContext):
+    await get_user(message.from_user.id, message.from_user)
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
     await message.answer(
         MSG_PHOTO_DESTINY_GREETING.format(name=user_name),
@@ -33,7 +34,7 @@ async def start_photo_destiny(message: Message, state: FSMContext):
 @router.message(PhotoDestinyStates.waiting_photo, F.photo)
 async def process_photo(message: Message, state: FSMContext, bot: Bot):
     # Проверяем лимиты перед обработкой
-    user, has_limit = await check_user_limit(message.from_user.id)
+    user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
     if not has_limit:
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
         #await state.clear()
@@ -82,7 +83,12 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
             response = MSG_OLLAMA_PHOTO_ERROR
 
         # Списание лимита
-        user = await decrement_user_limit(message.from_user.id)
+        user = await decrement_user_limit(
+            message.from_user.id,
+            feature="photo_destiny",
+            details={"photo_file_id": photo.file_id},
+            telegram_user=message.from_user,
+        )
 
         # Отправка ответа
         await message.answer(
@@ -102,4 +108,3 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
 @router.message(PhotoDestinyStates.waiting_photo)
 async def invalid_photo_input(message: Message, state: FSMContext):
     await message.answer(MSG_PHOTO_INVALID)
-

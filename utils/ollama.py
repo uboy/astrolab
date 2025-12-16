@@ -69,12 +69,12 @@ async def ask_ollama(
         url = _get_chat_url(settings.OLLAMA_URL)
         payload = await _build_chat_payload(prompt, images, files, model, stream)
         # Увеличенный таймаут для vision моделей (могут работать медленно)
-        default_timeout = 180 if timeout is None else timeout
+        default_timeout = 300 if timeout is None else timeout
     else:
         # Для обычного текста используем /api/generate
         url = settings.OLLAMA_URL
         payload = {"model": model, "prompt": prompt, "stream": stream}
-        default_timeout = 60 if timeout is None else timeout
+        default_timeout = 420 if timeout is None else timeout
 
     logger.debug(f"Отправка запроса к Ollama. URL: {url}, Модель: {model}, Промпт: {len(prompt)} символов, "
                  f"Изображений: {len(images) if images else 0}, Файлов: {len(files) if files else 0}, "
@@ -112,14 +112,14 @@ async def ask_ollama(
         except:
             error_detail = f" - {e.response.text[:200]}"
 
-        logger.error(f"HTTP ошибка при запросе к Ollama: {e.response.status_code}{error_detail}", exc_info=True)
-        return f"✨ Ошибка при запросе к Ollama: HTTP {e.response.status_code}"
+        logger.error(f"HTTP ошибка при запросе ко Вселенной: {e.response.status_code}{error_detail}", exc_info=True)
+        return f"✨ Ошибка при запросе ко Вселенной: HTTP {e.response.status_code}"
     except httpx.TimeoutException:
-        logger.error("Таймаут при запросе к Ollama", exc_info=True)
-        return "✨ Таймаут ожидания ответа от Ollama. Попробуйте упростить запрос."
+        logger.error("Таймаут при запросе ко Вселенной", exc_info=True)
+        return "✨ Таймаут ожидания ответа от Вселенной. Попробуйте упростить запрос."
     except Exception as e:
-        logger.error(f"Ошибка при запросе к Ollama: {e}", exc_info=True)
-        return f"✨ Ошибка при запросе к Ollama: {e}"
+        logger.error(f"Ошибка при запросе ко Вселенной: {e}", exc_info=True)
+        return f"✨ Ошибка при запросе ко Вселенной: {e}"
 
 
 def _get_chat_url(base_url: str) -> str:
@@ -344,6 +344,9 @@ def format_for_telegram(text: str) -> str:
     # Шаг 6: Конвертируем ссылки
     text = re.sub(r'\[([^]]+?)]\(([^)]+?)\)', r'<a href="\2">\1</a>', text)
 
+    # Шаг 8: Валидация парности тегов
+    text = _validate_and_fix_tags(text)
+
     # Шаг 7: Экранируем опасные символы
     text = re.sub(r'&(?![a-zA-Z]+;|#[0-9]+;)', r'&amp;', text)
 
@@ -368,31 +371,66 @@ def format_for_telegram(text: str) -> str:
         text = text.replace(placeholder, tag)
 
     # Шаг 8: Валидация парности тегов
-    text = _validate_and_fix_tags(text)
+    #text = _validate_and_fix_tags(text)
 
     return text
 
 
+# def _validate_and_fix_tags(text: str) -> str:
+#     """
+#     Проверяет и исправляет незакрытые HTML теги.
+#     """
+#     tags_to_check = ['b', 'i', 'u', 's', 'code', 'pre', 'a', 'strong', 'em', 'strike', 'del']
+#
+#     for tag in tags_to_check:
+#         # Подсчитываем открывающие и закрывающие теги
+#         open_pattern = f'<{tag}(?:\\s[^>]*)?>'
+#         close_pattern = f'</{tag}>'
+#
+#         open_count = len(re.findall(open_pattern, text))
+#         close_count = len(re.findall(close_pattern, text))
+#
+#         # Если несоответствие - удаляем все такие теги для безопасности
+#         if open_count != close_count:
+#             logger.warning(f"Обнаружены незакрытые теги <{tag}>: открыто={open_count}, закрыто={close_count}")
+#             # Удаляем все теги этого типа
+#             text = re.sub(open_pattern, '', text)
+#             text = re.sub(close_pattern, '', text)
+#             logger.info(f"Удалены все теги <{tag}> для безопасности")
+#
+#     return text
+
+
 def _validate_and_fix_tags(text: str) -> str:
-    """
-    Проверяет и исправляет незакрытые HTML теги.
-    """
-    tags_to_check = ['b', 'i', 'u', 's', 'code', 'pre', 'a', 'strong', 'em', 'strike', 'del']
+    # Убрали 'pre' и 'a' из общего списка
+    tags_to_check = ['b', 'i', 'u', 's', 'code', 'strong', 'em', 'strike', 'del']
 
     for tag in tags_to_check:
-        # Подсчитываем открывающие и закрывающие теги
-        open_pattern = f'<{tag}(?:\\s[^>]*)?>'
-        close_pattern = f'</{tag}>'
+        # Простой паттерн БЕЗ атрибутов
+        open_pattern = rf'<{tag}>'
+        close_pattern = rf'</{tag}>'
 
-        open_count = len(re.findall(open_pattern, text))
-        close_count = len(re.findall(close_pattern, text))
+        # Используем finditer вместо findall для большей точности
+        open_tags = list(re.finditer(open_pattern, text))
+        close_tags = list(re.finditer(close_pattern, text))
 
-        # Если несоответствие - удаляем все такие теги для безопасности
+        open_count = len(open_tags)
+        close_count = len(close_tags)
+
         if open_count != close_count:
-            logger.warning(f"Обнаружены незакрытые теги <{tag}>: открыто={open_count}, закрыто={close_count}")
-            # Удаляем все теги этого типа
+            logger.warning(f"Несбалансированные теги...")
             text = re.sub(open_pattern, '', text)
             text = re.sub(close_pattern, '', text)
-            logger.info(f"Удалены все теги <{tag}> для безопасности")
+            logger.info(f"Удалены все теги <{tag}>...")
+
+    # Отдельная обработка для <a> (имеет атрибуты)
+    a_open = len(re.findall(r'<a\s+href="[^"]*">', text))
+    a_close = len(re.findall(r'</a>', text))
+
+    if a_open != a_close:
+        logger.warning(f"Несбалансированные теги <a>...")
+        text = re.sub(r'<a\s+href="[^"]*">', '', text)
+        text = re.sub(r'</a>', '', text)
+        logger.info("Удалены все теги <a>...")
 
     return text

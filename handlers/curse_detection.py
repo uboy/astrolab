@@ -15,7 +15,7 @@ from utils.constants import (
 from keyboards.menus import main_menu, payment_menu
 import random
 from handlers.base import PaymentStates
-from utils.user_helpers import check_user_limit
+from utils.user_helpers import check_user_limit, log_user_action
 
 router = Router()
 
@@ -28,7 +28,7 @@ class CurseDetectionStates(StatesGroup):
 # -----------------------------
 @router.message(F.text == BTN_CURSE_DETECTION, StateFilter(None))
 async def start_curse_detection(message: Message, state: FSMContext):
-    user, has_limit = await check_user_limit(message.from_user.id)
+    user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
     if not has_limit:
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
         #await state.clear()
@@ -55,6 +55,12 @@ async def start_curse_detection(message: Message, state: FSMContext):
         MSG_CURSE_DETECTION_RESULT.format(curse=selected_curse),
         reply_markup=keyboard
     )
+    await log_user_action(
+        message.from_user.id,
+        feature="curse_detection_start",
+        details={"suggested_curse": selected_curse},
+        telegram_user=message.from_user,
+    )
 
 
 # -----------------------------
@@ -67,6 +73,12 @@ async def handle_curse_decision(message: Message, state: FSMContext):
     if text.lower() == BTN_BACK.lower():
         await state.clear()
         await message.answer(MSG_RETURNED_TO_MENU, reply_markup=main_menu)
+        await log_user_action(
+            message.from_user.id,
+            feature="curse_detection_decision",
+            details={"decision": "back"},
+            telegram_user=message.from_user,
+        )
         return
     
     if text.lower() in [BTN_YES.lower(), "yes"]:
@@ -82,12 +94,24 @@ async def handle_curse_decision(message: Message, state: FSMContext):
             reply_markup=main_menu, parse_mode='HTML'
         )
         await state.clear()
+        await log_user_action(
+            message.from_user.id,
+            feature="curse_detection_decision",
+            details={"decision": "ritual", "curse": curse, "ritual": selected_ritual},
+            telegram_user=message.from_user,
+        )
         return
     
     if text.lower() in [BTN_NO.lower(), "no"]:
         # Пользователь не хочет снимать проклятие
         await message.answer(MSG_CURSE_REMAINS, reply_markup=main_menu)
         await state.clear()
+        await log_user_action(
+            message.from_user.id,
+            feature="curse_detection_decision",
+            details={"decision": "decline"},
+            telegram_user=message.from_user,
+        )
         return
     
     # Если введен неизвестный текст, просим выбрать из предложенных вариантов

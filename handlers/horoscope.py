@@ -17,20 +17,27 @@ from handlers.base import PaymentStates
 
 router = Router()
 
+CANCEL_WORDS = {"отмена", "назад", "в меню", "в главное меню", "/cancel", "/start"}
+
 MONTH_NAMES = [
     'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
     'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
 ]
+
 
 class HoroscopeStates(StatesGroup):
     waiting_birthdate = State()
     waiting_ollama_response = State()
 
 
+# ---------------------------------------------------------
+# 🟦 Обработка начала гороскопа
+# ---------------------------------------------------------
 @router.message(F.text == BTN_HOROSCOPE, StateFilter(None))
 async def start_horoscope(message: Message, state: FSMContext):
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
-    user, has_limit = await check_user_limit(message.from_user.id)
+    user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
+
     if not has_limit:
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
         #await state.clear()
@@ -44,8 +51,30 @@ async def start_horoscope(message: Message, state: FSMContext):
     await state.set_state(HoroscopeStates.waiting_birthdate)
 
 
+# ---------------------------------------------------------
+# 🟥 ОБРАБОТКА ОТМЕНЫ — глобальная для состояния ввода даты
+# ---------------------------------------------------------
+@router.message(
+    HoroscopeStates.waiting_birthdate,
+    F.text.lower().in_(CANCEL_WORDS)
+)
+async def cancel_birthdate(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("Хорошо, возвращаемся в главное меню 😊", reply_markup=main_menu)
+
+
+# ---------------------------------------------------------
+# 🟩 Обработка введённой даты рождения
+# ---------------------------------------------------------
 @router.message(HoroscopeStates.waiting_birthdate)
 async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
+    # Если пользователь случайно отправил команду
+    if message.text.lower() in CANCEL_WORDS:
+        await state.clear()
+        await message.answer("Возврат в главное меню.", reply_markup=main_menu)
+        return
+
+    # Парсинг даты
     try:
         dt = datetime.strptime(message.text.strip(), "%d.%m.%Y")
     except ValueError:
@@ -55,18 +84,18 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     # Проверка возраста
     today = datetime.now(timezone.utc)
     age = today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
-    
+
     if age < 18:
         await message.answer(MSG_UNDERAGE, reply_markup=main_menu)
         await state.clear()
         return
-    
+
     if age > 100:
         await message.answer(MSG_OVERAGE, reply_markup=main_menu)
         await state.clear()
         return
 
-    user, has_limit = await check_user_limit(message.from_user.id)
+    user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
     if not has_limit:
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
         #await state.clear()
@@ -77,7 +106,7 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
 
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
     pretty_date = f"{dt.day} {MONTH_NAMES[dt.month - 1]} {dt.year}"
-    
+
     prompt = (
         f"Ты магический бот-гадалка 🧙‍♂️✨. "
         f"Составь весёлый гороскоп для {user_name}, родившегося {pretty_date}. "
@@ -85,22 +114,28 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
         f"укажи, сколько у пользователя есть {user['free_count']} бесплатных и {user['paid_count']} платных обращений. "
         f"Используй забавный, дружелюбный и магический стиль."
     )
-    
+
     # Используем функцию с прогресс-баром
     from utils.ollama import ask_ollama
     response = await process_ollama_with_progress(
         bot, message.chat.id, ask_ollama, prompt
     )
-    
+
     if not response.strip():
         response = MSG_OLLAMA_HOROSCOPE_ERROR
 
     # Списание лимита
-    user = await decrement_user_limit(message.from_user.id)
+    user = await decrement_user_limit(
+        message.from_user.id,
+        feature="horoscope",
+        details={"birthdate": message.text.strip(), "age": age},
+        telegram_user=message.from_user,
+    )
 
     # Отправка ответа
     await message.answer(
         format_response_with_balance(response, user),
-        reply_markup=main_menu, parse_mode='HTML'
+        reply_markup=main_menu,
+        parse_mode='HTML'
     )
     await state.clear()
