@@ -32,6 +32,15 @@ def _extract_profile(telegram_user: Optional[TgUser]) -> Dict[str, Any]:
     }
 
 
+def _default_subscription() -> Dict[str, Any]:
+    return {
+        "active": False,
+        "time": "13:00",
+        "birthdate": None,
+        "last_sent": None,
+    }
+
+
 async def get_user(user_id: int, telegram_user: Optional[TgUser] = None) -> Dict[str, Any]:
     """
     Получить пользователя из базы данных или создать нового
@@ -67,6 +76,13 @@ async def get_user(user_id: int, telegram_user: Optional[TgUser] = None) -> Dict
     if "rate" not in user or not isinstance(user["rate"], dict):
         user["rate"] = {"minute": [], "hour": []}
     user.setdefault("state", None)
+    # подписка
+    subscription = user.get("subscription") or _default_subscription()
+    subscription.setdefault("active", False)
+    subscription.setdefault("time", "13:00")
+    subscription.setdefault("birthdate", None)
+    subscription.setdefault("last_sent", None)
+    user["subscription"] = subscription
 
     # first_seen/last_seen
     if not user.get("first_seen"):

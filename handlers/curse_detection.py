@@ -8,9 +8,9 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import StateFilter
 from utils.curses_data import CURSES, RITUALS
 from utils.constants import (
-    BTN_CURSE_DETECTION, BTN_BACK, BTN_YES, BTN_NO,
-    MSG_CURSE_DETECTION_RESULT, MSG_CURSE_RITUAL, MSG_CURSE_REMAINS,
-    MSG_RETURNED_TO_MENU, MSG_INVALID_DECISION, MSG_NO_FREE_PAID
+    BTN_LUCK_RESET, BTN_BACK, BTN_YES, BTN_NO, BTN_CANCEL,
+    MSG_LUCK_RESET_RESULT, MSG_LUCK_RESET_RITUAL, MSG_LUCK_RESET_SKIP,
+    MSG_RETURNED_TO_MENU, MSG_INVALID_DECISION, MSG_NO_FREE_PAID, MSG_LUCK_RESET_GREETING
 )
 from keyboards.menus import main_menu, payment_menu
 import random
@@ -24,9 +24,9 @@ class CurseDetectionStates(StatesGroup):
 
 
 # -----------------------------
-# Старт определения проклятия
+# Старт перезапуска удачи
 # -----------------------------
-@router.message(F.text == BTN_CURSE_DETECTION, StateFilter(None))
+@router.message(F.text == BTN_LUCK_RESET, StateFilter(None))
 async def start_curse_detection(message: Message, state: FSMContext):
     user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
     if not has_limit:
@@ -35,7 +35,7 @@ async def start_curse_detection(message: Message, state: FSMContext):
         await state.set_state(PaymentStates.choosing_amount)
         return
 
-    # Случайно выбираем проклятие
+    # Случайно выбираем забавный сценарий неудачи
     selected_curse = random.choice(CURSES)
     
     # Сохраняем выбранное проклятие в состоянии
@@ -46,13 +46,13 @@ async def start_curse_detection(message: Message, state: FSMContext):
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=BTN_YES), KeyboardButton(text=BTN_NO)],
-            [KeyboardButton(text=BTN_BACK)]
+            [KeyboardButton(text=BTN_BACK), KeyboardButton(text=BTN_CANCEL)]
         ],
         resize_keyboard=True
     )
     
     await message.answer(
-        MSG_CURSE_DETECTION_RESULT.format(curse=selected_curse),
+        f"{MSG_LUCK_RESET_GREETING}\n\n" + MSG_LUCK_RESET_RESULT.format(curse=selected_curse),
         reply_markup=keyboard
     )
     await log_user_action(
@@ -70,7 +70,7 @@ async def start_curse_detection(message: Message, state: FSMContext):
 async def handle_curse_decision(message: Message, state: FSMContext):
     text = message.text.strip()
     
-    if text.lower() == BTN_BACK.lower():
+    if text.lower() in (BTN_BACK.lower(), BTN_CANCEL.lower()):
         await state.clear()
         await message.answer(MSG_RETURNED_TO_MENU, reply_markup=main_menu)
         await log_user_action(
@@ -90,7 +90,7 @@ async def handle_curse_decision(message: Message, state: FSMContext):
         selected_ritual = random.choice(RITUALS)
         
         await message.answer(
-            MSG_CURSE_RITUAL.format(ritual=selected_ritual),
+            MSG_LUCK_RESET_RITUAL.format(ritual=selected_ritual),
             reply_markup=main_menu, parse_mode='HTML'
         )
         await state.clear()
@@ -104,7 +104,7 @@ async def handle_curse_decision(message: Message, state: FSMContext):
     
     if text.lower() in [BTN_NO.lower(), "no"]:
         # Пользователь не хочет снимать проклятие
-        await message.answer(MSG_CURSE_REMAINS, reply_markup=main_menu)
+        await message.answer(MSG_LUCK_RESET_SKIP, reply_markup=main_menu)
         await state.clear()
         await log_user_action(
             message.from_user.id,

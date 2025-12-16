@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import StateFilter
 from utils.constants import (
-    BTN_NUMEROLOGY, BTN_YES, BTN_NO,
+    BTN_NUMEROLOGY, BTN_YES, BTN_NO, BTN_CANCEL,
     MSG_NUMEROLOGY_GREETING, MSG_NUMEROLOGY_ASK_NAME, MSG_NUMEROLOGY_ASK_BIRTHDATE,
     MSG_INVALID_DATE_FORMAT, MSG_INVALID_NAME,
     MSG_UNDERAGE, MSG_OVERAGE, MSG_NO_FREE_PAID, MSG_OLLAMA_NUMEROLOGY_ERROR,
@@ -13,7 +13,7 @@ from utils.constants import (
 
 from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
-from keyboards.menus import main_menu, payment_menu
+from keyboards.menus import main_menu, payment_menu, cancel_menu
 from datetime import datetime, timezone
 from handlers.base import PaymentStates
 from utils.ollama import ask_ollama
@@ -45,7 +45,7 @@ async def start_numerology(message: Message, state: FSMContext):
     profile_name = message.from_user.first_name or "не указано"
 
     keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=BTN_YES), KeyboardButton(text=BTN_NO)]],
+        keyboard=[[KeyboardButton(text=BTN_YES), KeyboardButton(text=BTN_NO)], [KeyboardButton(text=BTN_CANCEL)]],
         resize_keyboard=True
     )
 

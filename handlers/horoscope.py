@@ -1,5 +1,5 @@
 from aiogram import Router, F, Bot
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import StateFilter
@@ -11,9 +11,10 @@ from utils.constants import (
 )
 from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
-from keyboards.menus import main_menu, payment_menu, payment_type_menu
+from keyboards.menus import main_menu, payment_menu, payment_type_menu, cancel_menu
 from datetime import datetime, timezone
 from handlers.base import PaymentStates
+from utils.zodiac import get_zodiac_sign
 
 router = Router()
 
@@ -46,7 +47,7 @@ async def start_horoscope(message: Message, state: FSMContext):
 
     await message.answer(
         MSG_HOROSCOPE_GREETING.format(name=user_name),
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=cancel_menu
     )
     await state.set_state(HoroscopeStates.waiting_birthdate)
 
@@ -106,10 +107,13 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
 
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
     pretty_date = f"{dt.day} {MONTH_NAMES[dt.month - 1]} {dt.year}"
+    zodiac_name, zodiac_emoji = get_zodiac_sign(dt.month, dt.day)
+    zodiac_label = f"{zodiac_emoji} {zodiac_name}"
 
     prompt = (
         f"Ты магический бот-гадалка 🧙‍♂️✨. "
         f"Составь весёлый гороскоп для {user_name}, родившегося {pretty_date}. "
+        f"Знак зодиака: {zodiac_label}. "
         f"Добавь юмор, эмодзи, советы по жизни, краткий прогноз, "
         f"укажи, сколько у пользователя есть {user['free_count']} бесплатных и {user['paid_count']} платных обращений. "
         f"Используй забавный, дружелюбный и магический стиль."
@@ -133,8 +137,9 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     )
 
     # Отправка ответа
+    formatted = f"{zodiac_label}\n\n{response}"
     await message.answer(
-        format_response_with_balance(response, user),
+        format_response_with_balance(formatted, user),
         reply_markup=main_menu,
         parse_mode='HTML'
     )

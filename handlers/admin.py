@@ -10,7 +10,9 @@ from utils.constants import (
     BTN_ADMIN, BTN_USER_STATS, BTN_RESET_LIMITS, BTN_CANCEL,
     MSG_NO_ACCESS, MSG_NO_COMMAND_ACCESS, MSG_ADMIN_MENU,
     MSG_NO_USERS, MSG_LIMITS_RESET, MSG_USER_STATS_HEADER,
-    MSG_ACTION_CANCELLED, MSG_RETURNING_TO_MENU
+    MSG_ACTION_CANCELLED, MSG_RETURNING_TO_MENU,
+    BTN_ADMIN_UNSUB, BTN_ADMIN_SET_TIME, MSG_ADMIN_ASK_USER_ID,
+    MSG_ADMIN_UNSUB_OK, MSG_ADMIN_TIME_OK, MSG_ADMIN_INVALID_TIME, MSG_ADMIN_NO_USER
 )
 from keyboards.menus import main_menu
 
@@ -19,6 +21,8 @@ router = Router()
 class AdminStates(StatesGroup):
     admin_state = State()
     all_states = State()
+    waiting_unsubscribe_user = State()
+    waiting_update_time_user = State()
 
 
 # -----------------------------
@@ -26,6 +30,17 @@ class AdminStates(StatesGroup):
 # -----------------------------
 def is_admin(user_id: int) -> bool:
     return user_id in settings.ADMINS
+
+
+def _admin_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=BTN_USER_STATS), KeyboardButton(text=BTN_RESET_LIMITS)],
+            [KeyboardButton(text=BTN_ADMIN_UNSUB), KeyboardButton(text=BTN_ADMIN_SET_TIME)],
+            [KeyboardButton(text=BTN_CANCEL)]
+        ],
+        resize_keyboard=True
+    )
 
 
 # -----------------------------
@@ -37,14 +52,7 @@ async def admin_menu(message: Message, state: FSMContext):
         await message.answer(MSG_NO_ACCESS)
         return
     await state.set_state(AdminStates.admin_state)
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=BTN_USER_STATS), KeyboardButton(text=BTN_RESET_LIMITS)],
-            [KeyboardButton(text=BTN_CANCEL)]
-        ],
-        resize_keyboard=True
-    )
-    await message.answer(MSG_ADMIN_MENU, reply_markup=keyboard)
+    await message.answer(MSG_ADMIN_MENU, reply_markup=_admin_keyboard())
 
 
 # -----------------------------
@@ -90,16 +98,11 @@ async def show_stats(message: Message):
     if current_chunk:
         chunks.append("\n".join(current_chunk))
 
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=BTN_ADMIN), KeyboardButton(text=BTN_CANCEL)]],
-        resize_keyboard=True
-    )
-
     for idx, chunk in enumerate(chunks):
         is_last = idx == len(chunks) - 1
         await message.answer(
             MSG_USER_STATS_HEADER.format(stats=chunk),
-            reply_markup=keyboard if is_last else ReplyKeyboardRemove()
+            reply_markup=_admin_keyboard() if is_last else ReplyKeyboardRemove()
         )
 
 
@@ -122,17 +125,104 @@ async def reset_limits(message: Message):
         u["paid_count"] = 0
     await write_json("data/users.json", users)
 
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=BTN_ADMIN), KeyboardButton(text=BTN_CANCEL)]],
-        resize_keyboard=True
-    )
-    await message.answer(MSG_LIMITS_RESET, reply_markup=keyboard)
+    await message.answer(MSG_LIMITS_RESET, reply_markup=_admin_keyboard())
+
+
+# -----------------------------
+# Отписать пользователя от уведомлений
+# -----------------------------
+@router.message(F.text == BTN_ADMIN_UNSUB, StateFilter(AdminStates.admin_state))
+async def admin_unsubscribe(message: Message, state: FSMContext):
+    await state.set_state(AdminStates.waiting_unsubscribe_user)
+    await message.answer(MSG_ADMIN_ASK_USER_ID)
+
+
+@router.message(AdminStates.waiting_unsubscribe_user)
+async def admin_unsubscribe_user(message: Message, state: FSMContext):
+    if message.text.strip().lower() == BTN_CANCEL.lower():
+        await state.clear()
+        await message.answer(MSG_ACTION_CANCELLED, reply_markup=_admin_keyboard())
+        await state.set_state(AdminStates.admin_state)
+        return
+
+    try:
+        user_id = str(int(message.text.strip()))
+    except ValueError:
+        await message.answer(MSG_ADMIN_ASK_USER_ID)
+        return
+
+    users = await read_json("data/users.json")
+    user = users.get(user_id)
+    if not user:
+        await message.answer(MSG_ADMIN_NO_USER.format(user_id=user_id), reply_markup=_admin_keyboard())
+        await state.set_state(AdminStates.admin_state)
+        return
+
+    subscription = user.get("subscription") or {}
+    subscription.update({"active": False, "last_sent": None})
+    user["subscription"] = subscription
+    users[user_id] = user
+    await write_json("data/users.json", users)
+    await message.answer(MSG_ADMIN_UNSUB_OK.format(user_id=user_id), reply_markup=_admin_keyboard())
+    await state.set_state(AdminStates.admin_state)
+
+
+# -----------------------------
+# Изменить время рассылки
+# -----------------------------
+@router.message(F.text == BTN_ADMIN_SET_TIME, StateFilter(AdminStates.admin_state))
+async def admin_set_time_start(message: Message, state: FSMContext):
+    await state.set_state(AdminStates.waiting_update_time_user)
+    await message.answer("Введите ID пользователя и время ЧЧ:ММ через пробел (12:00–15:00).")
+
+
+@router.message(AdminStates.waiting_update_time_user)
+async def admin_set_time(message: Message, state: FSMContext):
+    if message.text.strip().lower() == BTN_CANCEL.lower():
+        await state.clear()
+        await message.answer(MSG_ACTION_CANCELLED, reply_markup=_admin_keyboard())
+        await state.set_state(AdminStates.admin_state)
+        return
+
+    parts = message.text.strip().split()
+    if len(parts) != 2:
+        await message.answer(MSG_ADMIN_INVALID_TIME)
+        return
+    user_id, time_str = parts
+    try:
+        int(user_id)
+        hours, minutes = map(int, time_str.split(":"))
+        if not (0 <= hours <= 23 and 0 <= minutes <= 59):
+            raise ValueError
+    except ValueError:
+        await message.answer(MSG_ADMIN_INVALID_TIME)
+        return
+
+    hours = max(12, min(15, hours))
+    minutes = max(0, min(59, minutes))
+    normalized_time = f"{hours:02d}:{minutes:02d}"
+
+    users = await read_json("data/users.json")
+    user = users.get(user_id)
+    if not user:
+        await message.answer(MSG_ADMIN_NO_USER.format(user_id=user_id), reply_markup=_admin_keyboard())
+        await state.set_state(AdminStates.admin_state)
+        return
+
+    subscription = user.get("subscription") or {}
+    subscription.setdefault("active", False)
+    subscription["time"] = normalized_time
+    user["subscription"] = subscription
+    users[user_id] = user
+    await write_json("data/users.json", users)
+    await message.answer(MSG_ADMIN_TIME_OK.format(user_id=user_id, time=normalized_time), reply_markup=_admin_keyboard())
+    await state.set_state(AdminStates.admin_state)
 
 
 # -----------------------------
 # Отмена действия
 # -----------------------------
-@router.message(F.text == BTN_CANCEL, StateFilter(AdminStates.admin_state))
+@router.message(F.text == BTN_CANCEL, StateFilter(AdminStates.admin_state, AdminStates.waiting_unsubscribe_user, AdminStates.waiting_update_time_user))
 async def admin_cancel(message: Message, state: FSMContext):
     await state.clear()
     if is_admin(message.from_user.id):

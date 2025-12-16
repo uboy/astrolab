@@ -1,144 +1,131 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 from aiogram import Router, F, Bot
-from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import StateFilter
 from utils.constants import (
-    BTN_CURSE_REMOVAL, BTN_BACK, MSG_CURSE_REMOVAL_START,
-    MSG_NO_FREE_PAID, MSG_OLLAMA_CURSE_ERROR, MSG_RETURNED_TO_MENU,
-    DEFAULT_USER_NAME
+    BTN_ZODIAC_QUIZ, BTN_CANCEL,
+    MSG_ZODIAC_QUIZ_GREETING, MSG_ZODIAC_QUIZ_DONE, MSG_ZODIAC_QUIZ_ERROR,
+    MSG_NO_FREE_PAID, DEFAULT_USER_NAME
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user
+from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import main_menu, payment_menu
 from handlers.base import PaymentStates
 
 router = Router()
 
-class CurseStates(StatesGroup):
-    choosing_curse = State()
-    waiting_ollama_response = State()
-
-# -----------------------------
-# Список готовых порч
-# -----------------------------
-CURSES = [
-    {"title": "Общая/жизненная порча", "phrase": "Чувствую тяжесть и усталость, всё валится из рук — снимите порчу."},
-    {"title": "Семейная/социальная порча", "phrase": "В доме конфликты, злость кипит — кто-то навёл злые глаза."},
-    {"title": "Порча на бедность/растрату", "phrase": "Деньги уходят сквозь пальцы, нечего держать — заговор на нищету."},
-    {"title": "Порча на работу/успех", "phrase": "С работой не везёт: увольнения, проекты рушатся — порча на карьеру."},
-    {"title": "Порча на отношения/любовную разлуку", "phrase": "Счастье в семье ушло: муж охладел, измены, отречение детей."},
-    {"title": "Порча на детей", "phrase": "Дети болеют, неуспевают, тянет в плохое — порча на детей."},
-    {"title": "Порча на здоровье", "phrase": "Здоровье рушится inexplicably — врачи не находят причину."},
-    {"title": "Порча на сон/кошмары", "phrase": "Сон словно разорван: кошмары, бессонница, дурные сны."},
-    {"title": "Порча на плодородие", "phrase": "Я не могу забеременеть/роды осложняются — порча на плод."},
-    {"title": "Порча на психику/депрессия", "phrase": "Постоянный страх, беспокойство, депрессия — будто душу затянули."},
-    {"title": "Порча на удачу", "phrase": "Враг всюду: вещи теряются, планы ломают, люди отвернулись."},
-    {"title": "Магическое преследование", "phrase": "Чувствую, что за мной следят - дурные видения и предзнаменования."},
-    {"title": "Деловая/контрактная порча", "phrase": "Кошель идёт на убыль, налоги/штрафы бешеные — кто-то уроняет мой достаток."},
-    {"title": "Порча на дом/пространство", "phrase": "Дом пустой от гостей, растения чахнут — порча на дом."},
-    {"title": "Обрядовая/артефакт-порча", "phrase": "Чёрные знаки: опухоли, ругательства, найденные куклы/иглы."},
-    {"title": "Порча на репутацию", "phrase": "Меня оболгали, репутация рушится — порча на честь и имя."},
-    {"title": "Подселение/внедрение", "phrase": "Чувствую чужую энергию в себе — не своё поведение, мысли."},
-    {"title": "Порча на технику/транспорт", "phrase": "Постоянные аварии, поломки — порча на технику и транспорт."},
-    {"title": "Привязка/энергетическая связь", "phrase": "Нельзя щелкнуть пальцами: всё идёт на перекосяк после определённого человека."},
-    {"title": "Диагностика/неизвестная порча", "phrase": "Хочу проверить — есть ли порча и кто наводил."},
+QUIZ_QUESTIONS = [
+    {
+        "question": "Вы скорее берёте инициативу или ждёте момента?",
+        "options": ["Всегда впереди", "Жду подхода", "Смотря по настроению", "Доверяю судьбе", "Планирую до мелочей"]
+    },
+    {
+        "question": "Как реагируете на конфликт?",
+        "options": ["В лоб и сразу", "Переведу в шутку", "Ухожу в тишину", "Дипломатично", "Медленно, но верно убеждаю"]
+    },
+    {
+        "question": "Любимая спонтанность?",
+        "options": ["Внезапные поездки", "Ночные разговоры", "Эксперименты с едой", "Книги/кино под настроение", "Расписать всё до минуты"]
+    },
+    {
+        "question": "Как отдыхаете после тяжёлого дня?",
+        "options": ["Спорт/движение", "Тихий уют дома", "Встречи с друзьями", "Творчество", "Сон — лучший план"]
+    },
+    {
+        "question": "Что вас мотивирует?",
+        "options": ["Цель и победа", "Любопытство", "Стабильность", "Общение и поддержка", "Красота и комфорт"]
+    },
+    {
+        "question": "Какой подарок выберете?",
+        "options": ["Гаджет/инструмент", "Книга/курс", "Что-то для дома", "Сертификат на впечатления", "Что-то красивое и стильное"]
+    },
 ]
 
 
-# -----------------------------
-# Старт снятия порчи
-# -----------------------------
-@router.message(F.text == BTN_CURSE_REMOVAL, StateFilter(None))
-async def start_curse(message: Message, state: FSMContext):
-    await get_user(message.from_user.id, message.from_user)
-    # Создаем кнопки в 2 колонки
-    keyboard_rows = []
-    for i in range(0, len(CURSES), 2):
-        row = [KeyboardButton(text=CURSES[i]["title"])]
-        if i + 1 < len(CURSES):
-            row.append(KeyboardButton(text=CURSES[i + 1]["title"]))
-        keyboard_rows.append(row)
-    # Добавляем кнопку "Назад" в отдельную строку
-    keyboard_rows.append([KeyboardButton(text=BTN_BACK)])
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=keyboard_rows,
-        resize_keyboard=True
-    )
-    await state.set_state(CurseStates.choosing_curse)
-    await message.answer(MSG_CURSE_REMOVAL_START, reply_markup=keyboard)
+class ZodiacQuizStates(StatesGroup):
+    asking = State()
 
 
-# -----------------------------
-# Выбор готовой порчи или пользовательский текст
-# -----------------------------
-@router.message(CurseStates.choosing_curse)
-async def choose_curse(message: Message, state: FSMContext, bot: Bot):
-    text = message.text.strip()
-    if text.lower() == BTN_BACK.lower():
-        await state.clear()
-        await message.answer(MSG_RETURNED_TO_MENU, reply_markup=main_menu)
-        return
-
-    # Проверяем, есть ли совпадение с готовыми порчами
-    selected = next((c for c in CURSES if c["title"].lower() == text.lower()), None)
-    if selected:
-        curse_text = selected["phrase"]
-    else:
-        # Пользовательский текст
-        curse_text = text
-
-    await state.update_data(curse_phrase=curse_text)
-    await state.set_state(CurseStates.waiting_ollama_response)
-    await process_ollama_curse(message, state, bot)
+def _question_keyboard(options):
+    rows = [[KeyboardButton(text=o)] for o in options]
+    rows.append([KeyboardButton(text=BTN_CANCEL)])
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
-# -----------------------------
-# Обработка запроса к Ollama
-# -----------------------------
-async def process_ollama_curse(message: Message, state: FSMContext, bot: Bot):
-    data = await state.get_data()
-    curse_text = data.get("curse_phrase", "")
+@router.message(F.text == BTN_ZODIAC_QUIZ, StateFilter(None))
+async def start_quiz(message: Message, state: FSMContext):
     user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
-
     if not has_limit:
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
-        #await state.clear()
         await state.set_state(PaymentStates.choosing_amount)
         return
 
+    await state.update_data(index=0, answers=[])
+    await state.set_state(ZodiacQuizStates.asking)
+    first_q = QUIZ_QUESTIONS[0]
+    await message.answer(MSG_ZODIAC_QUIZ_GREETING)
+    await message.answer(first_q["question"], reply_markup=_question_keyboard(first_q["options"]))
+
+
+@router.message(ZodiacQuizStates.asking)
+async def handle_quiz_answer(message: Message, state: FSMContext, bot: Bot):
+    if (message.text or "").lower() == BTN_CANCEL.lower():
+        await state.clear()
+        await message.answer("Отменено. Возвращаю в меню.", reply_markup=main_menu)
+        return
+
+    data = await state.get_data()
+    idx = data.get("index", 0)
+    answers = data.get("answers", [])
+    if idx >= len(QUIZ_QUESTIONS):
+        idx = len(QUIZ_QUESTIONS) - 1
+
+    current_q = QUIZ_QUESTIONS[idx]
+    answers.append({"question": current_q["question"], "answer": message.text})
+    idx += 1
+
+    if idx < len(QUIZ_QUESTIONS):
+        await state.update_data(index=idx, answers=answers)
+        next_q = QUIZ_QUESTIONS[idx]
+        await message.answer(next_q["question"], reply_markup=_question_keyboard(next_q["options"]))
+        return
+
+    # Собраны все ответы — просим ИИ угадать знак
+    user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
+    if not has_limit:
+        await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
+        await state.set_state(PaymentStates.choosing_amount)
+        return
+
+    await message.answer(MSG_ZODIAC_QUIZ_DONE, reply_markup=_question_keyboard([]))
+
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
+    answers_text = "\n".join([f"{a['question']} → {a['answer']}" for a in answers])
     prompt = (
-        f"Ты магический бот-гадалка 🧙‍♂️✨. "
-        f"Сними порчу для {user_name}, используя вариант: {curse_text}. "
-        f"У пользователя есть {user['free_count']} бесплатных и {user['paid_count']} платных обращений. "
-        f"Дай пошаговые рекомендации в магическом и дружелюбном стиле."
+        "Ты весёлый астролог. По ответам пользователя попробуй угадать его знак зодиака. "
+        "Дай уверенное предположение и кратко объясни, почему, с юмором и эмодзи. "
+        f"Имя: {user_name}. Ответы:\n{answers_text}"
     )
 
-    # Используем функцию с прогресс-баром
     from utils.ollama import ask_ollama
     response = await process_ollama_with_progress(
         bot, message.chat.id, ask_ollama, prompt
     )
-    
-    if not response.strip():
-        response = MSG_OLLAMA_CURSE_ERROR
 
-    # Списание лимита
+    if not response.strip():
+        response = MSG_ZODIAC_QUIZ_ERROR
+
     user = await decrement_user_limit(
         message.from_user.id,
-        feature="curse_removal",
-        details={"curse_phrase": curse_text},
+        feature="zodiac_quiz",
+        details={"answers": answers},
         telegram_user=message.from_user,
     )
 
-    # Отправка ответа
     await message.answer(
         format_response_with_balance(response, user),
-        reply_markup=main_menu, parse_mode='HTML'
+        reply_markup=main_menu,
+        parse_mode='HTML'
     )
     await state.clear()
