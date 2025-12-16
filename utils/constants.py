@@ -36,6 +36,8 @@ BTN_ADMIN_USER_SUBSCRIBE = "✅ Подписать"
 BTN_ADMIN_USER_UNSUBSCRIBE = "🚫 Отписать"
 BTN_ADMIN_USER_SET_TIME = "⏰ Время подписки"
 BTN_ADMIN_USER_DELETE = "🗑️ Удалить пользователя"
+BTN_ADMIN_SETTINGS = "⚙️ Настройки"
+BTN_ADMIN_LOGS = "📝 Логи"
 
 # Кнопки оплаты
 BTN_PAYMENT_AMOUNT_5 = "5"
@@ -96,6 +98,8 @@ ADMIN_BUTTONS = {
     BTN_ADMIN_USER_UNSUBSCRIBE,
     BTN_ADMIN_USER_SET_TIME,
     BTN_ADMIN_USER_DELETE,
+    BTN_ADMIN_SETTINGS,
+    BTN_ADMIN_LOGS,
 }
 
 ALL_MENU_BUTTONS = MAIN_MENU_BUTTONS | ADMIN_BUTTONS
@@ -136,6 +140,14 @@ PAYMENT_FAIL_MESSAGES = {
     BTN_PAYMENT_METHOD_FINGER: "🧙‍♂️ На палец наложили порчу! Оплата не прошла.",
     BTN_PAYMENT_METHOD_COINS: "💨 Портал отказался принимать монетки! Попробуйте другой способ.",
 }
+
+# Лимиты
+MSG_RATE_LIMIT = "✨ Вселенная устала от ваших запросов. Подождите {wait}s и попробуйте снова."
+OLLAMA_FEATURES = {"horoscope", "compatibility", "numerology", "photo_destiny", "zodiac_quiz"}
+OLLAMA_PER_MIN = 1
+OLLAMA_PER_HOUR = 50
+OTHER_PER_MIN = 10
+OTHER_PER_HOUR = 500
 
 # Подписки
 MSG_SUBSCRIBE_ASK_BIRTHDATE = "📅 Введите дату рождения для ежедневного гороскопа (ДД.MM.ГГГГ):"

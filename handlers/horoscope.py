@@ -9,12 +9,13 @@ from utils.constants import (
     MSG_UNDERAGE, MSG_OVERAGE, MSG_NO_FREE_PAID, MSG_OLLAMA_HOROSCOPE_ERROR,
     DEFAULT_USER_NAME, MSG_BALANCE_FORMAT
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name
+from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import main_menu, payment_menu, payment_type_menu, cancel_menu
 from datetime import datetime, timezone
 from handlers.base import PaymentStates
 from utils.zodiac import get_zodiac_sign
+from utils.rate_limit import check_rate_limit
 
 router = Router()
 
@@ -101,6 +102,12 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
         #await state.clear()
         await state.set_state(PaymentStates.choosing_method)
+        return
+    allowed, wait_msg = check_rate_limit(user, "horoscope")
+    if not allowed:
+        await save_user(message.from_user.id, user)
+        await message.answer(wait_msg, reply_markup=main_menu)
+        await state.clear()
         return
 
     await state.set_state(HoroscopeStates.waiting_ollama_response)

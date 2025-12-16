@@ -8,12 +8,13 @@ from utils.constants import (
     MSG_NO_FREE_PAID, MSG_OLLAMA_COMPATIBILITY_ERROR, DEFAULT_USER_NAME,
     BTN_DONE, BTN_CANCEL, MSG_COMPATIBILITY_PHOTO_PROMPT, MSG_COMPATIBILITY_COLLECTED
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user
+from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import main_menu, payment_menu, cancel_or_done_menu, cancel_menu
 from handlers.base import PaymentStates
 import base64
 from io import BytesIO
+from utils.rate_limit import check_rate_limit
 
 router = Router()
 
@@ -148,6 +149,12 @@ async def run_compatibility(message: Message, state: FSMContext, bot: Bot):
     if not has_limit:
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
         await state.set_state(PaymentStates.choosing_amount)
+        return
+    allowed, wait_msg = check_rate_limit(user, "compatibility")
+    if not allowed:
+        await save_user(message.from_user.id, user)
+        await message.answer(wait_msg, reply_markup=main_menu)
+        await state.clear()
         return
 
     data = await state.get_data()

@@ -77,7 +77,7 @@ async def show_progress_bar(
         message_id: int,
         stop_event: asyncio.Event,
         total_steps: int = 40,
-        step_delay: float = 1.6
+        step_delay: float = 2.2
 ) -> None:
     """
     Показать анимацию прогресс-бара с фиксированной шириной и иконкой "магического шара".

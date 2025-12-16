@@ -15,7 +15,9 @@ from utils.constants import (
 from keyboards.menus import main_menu, payment_menu
 import random
 from handlers.base import PaymentStates
-from utils.user_helpers import check_user_limit, log_user_action
+from utils.user_helpers import check_user_limit, log_user_action, save_user
+from utils.rate_limit import check_rate_limit
+import datetime
 
 router = Router()
 
@@ -34,6 +36,18 @@ async def start_curse_detection(message: Message, state: FSMContext):
         #await state.clear()
         await state.set_state(PaymentStates.choosing_amount)
         return
+    allowed, wait_msg = check_rate_limit(user, "luck_reset")
+    if not allowed:
+        await save_user(message.from_user.id, user)
+        await message.answer(wait_msg, reply_markup=main_menu)
+        return
+    # фиксируем использование небесплатной функции без списания лимита
+    ts = datetime.datetime.now(datetime.timezone.utc).timestamp()
+    rate = user.get("rate", {"minute": [], "hour": []})
+    rate.setdefault("minute", []).append(ts)
+    rate.setdefault("hour", []).append(ts)
+    user["rate"] = rate
+    await save_user(message.from_user.id, user)
 
     # Случайно выбираем забавный сценарий неудачи
     selected_curse = random.choice(CURSES)

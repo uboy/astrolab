@@ -113,13 +113,13 @@ async def ask_ollama(
             error_detail = f" - {e.response.text[:200]}"
 
         logger.error(f"HTTP ошибка при запросе ко Вселенной: {e.response.status_code}{error_detail}", exc_info=True)
-        return f"✨ Ошибка при запросе ко Вселенной: HTTP {e.response.status_code}"
+        return "✨ Вселенная недоступна. Попробуйте позже."
     except httpx.TimeoutException:
         logger.error("Таймаут при запросе ко Вселенной", exc_info=True)
-        return "✨ Таймаут ожидания ответа от Вселенной. Попробуйте упростить запрос."
+        return "✨ Вселенная задумалась. Попробуйте ещё раз позже."
     except Exception as e:
         logger.error(f"Ошибка при запросе ко Вселенной: {e}", exc_info=True)
-        return f"✨ Ошибка при запросе ко Вселенной: {e}"
+        return "✨ Вселенная недоступна. Попробуйте позже."
 
 
 def _get_chat_url(base_url: str) -> str:

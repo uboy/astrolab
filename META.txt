@@ -1,5 +1,5 @@
-step: 07
+step: 08
 date: 2025-12-16
 member: dev_katerinochkin
-commit: 29b0401
-subject: Add host logging and user-centric admin UI with per-user actions
+commit: a6a0ebf
+subject: Enforce per-feature rate limits and fix subscription keyboard validation

@@ -7,6 +7,10 @@ from utils.config import settings
 from datetime import datetime, timezone
 from typing import Dict, Any, Tuple, Optional
 from aiogram.types import User as TgUser
+from utils.constants import (
+    MSG_RATE_LIMIT, OLLAMA_FEATURES,
+    OLLAMA_PER_MIN, OLLAMA_PER_HOUR, OTHER_PER_MIN, OTHER_PER_HOUR
+)
 
 
 def _now_iso() -> str:
@@ -128,6 +132,18 @@ async def check_user_limit(user_id: int, telegram_user: Optional[TgUser] = None)
         Tuple[user_data, has_limit]: Данные пользователя и флаг наличия лимита
     """
     user = await get_user(user_id, telegram_user)
+    now = datetime.now(timezone.utc)
+    rate = user.get("rate", {"minute": [], "hour": []})
+
+    # Очищаем старые записи
+    minute_ago = now.timestamp() - 60
+    hour_ago = now.timestamp() - 3600
+    rate["minute"] = [t for t in rate.get("minute", []) if t > minute_ago]
+    rate["hour"] = [t for t in rate.get("hour", []) if t > hour_ago]
+
+    user["rate"] = rate
+    await save_user(user_id, user)
+
     has_limit = user["free_count"] + user["paid_count"] > 0
 
     return user, has_limit
@@ -156,16 +172,24 @@ async def decrement_user_limit(
     elif user["paid_count"] > 0:
         user["paid_count"] = max(0, user["paid_count"] - price)
 
-    ts = _now_iso()
-    user["history"].append(ts)
+    ts_iso = _now_iso()
+    ts = datetime.now(timezone.utc).timestamp()
+    user["history"].append(ts_iso)
     user["state"] = None
-    user["last_seen"] = ts
+    user["last_seen"] = ts_iso
 
+    # Логируем действие
     if feature or details:
-        action = {"ts": ts, "feature": feature or "unknown"}
+        action = {"ts": ts_iso, "feature": feature or "unknown"}
         if details:
             action["details"] = details
         user["actions"].append(action)
+
+    # Обновляем rate-листы
+    rate = user.get("rate", {"minute": [], "hour": []})
+    rate.setdefault("minute", []).append(ts)
+    rate.setdefault("hour", []).append(ts)
+    user["rate"] = rate
 
     await save_user(user_id, user)
     return user

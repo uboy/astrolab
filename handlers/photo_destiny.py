@@ -7,11 +7,12 @@ from utils.constants import (
     BTN_PHOTO_DESTINY, MSG_PHOTO_DESTINY_GREETING, MSG_PHOTO_INVALID,
     MSG_NO_FREE_PAID, MSG_OLLAMA_PHOTO_ERROR, DEFAULT_USER_NAME, BTN_CANCEL
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user
+from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import main_menu, payment_menu, cancel_menu
 import base64
 from handlers.base import PaymentStates
+from utils.rate_limit import check_rate_limit
 
 router = Router()
 
@@ -39,6 +40,12 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
         #await state.clear()
         await state.set_state(PaymentStates.choosing_amount)
+        return
+    allowed, wait_msg = check_rate_limit(user, "photo_destiny")
+    if not allowed:
+        await save_user(message.from_user.id, user)
+        await message.answer(wait_msg, reply_markup=main_menu)
+        await state.clear()
         return
 
     await state.set_state(PhotoDestinyStates.waiting_ollama_response)
