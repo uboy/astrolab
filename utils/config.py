@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     BOT_TOKEN: str
     OLLAMA_URL: str
     OLLAMA_MODEL: str
+    OLLAMA_VISION_MODEL: str = "qwen3-vl:32b"
     RATE_LIMIT_PER_MIN: int
     RATE_LIMIT_PER_HOUR: int
     FREE_MESSAGES_COUNT: int

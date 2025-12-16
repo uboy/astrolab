@@ -1,5 +1,5 @@
-step: 08
+step: 09
 date: 2025-12-16
 member: dev_katerinochkin
-commit: a6a0ebf
-subject: Enforce per-feature rate limits and fix subscription keyboard validation
+commit: 336ee96
+subject: Add admin subscriber controls, extend subscription window, and enable forced sends

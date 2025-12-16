@@ -57,7 +57,7 @@ async def ask_ollama(
     if model is None:
         # Если есть изображения или файлы, используем vision модель
         if (images and len(images) > 0) or (files and len(files) > 0):
-            model = "qwen3-vl:32b"
+            model = settings.OLLAMA_VISION_MODEL
         else:
             model = settings.OLLAMA_MODEL
 
