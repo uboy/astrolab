@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from handlers.base import PaymentStates
 from utils.ollama import ask_ollama
 from utils.rate_limit import check_rate_limit
+from utils.prompts import NUMEROLOGY_PROMPT, DISCLAIMER
 
 router = Router()
 
@@ -158,7 +159,7 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     allowed, wait_msg = check_rate_limit(user, "numerology")
     if not allowed:
         await save_user(message.from_user.id, user)
-        await message.answer(wait_msg, reply_markup=main_menu)
+        await message.answer(wait_msg, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
 
@@ -169,14 +170,10 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     name = data.get("name", DEFAULT_USER_NAME)
     pretty_date = f"{dt.day} {MONTH_NAMES[dt.month - 1]} {dt.year}"
 
-    prompt = (
-        f"Ты магический бот-нумеролог 🧙‍♂️✨. "
-        f"Проведи нумерологический анализ для {name}, родившегося {pretty_date}. "
-        f"Используй нумерологию: рассчитай число судьбы, число имени, число жизненного пути. "
-        f"Опиши характер, таланты, жизненные задачи, совместимость с числами, предсказания. "
-        f"Добавь юмор, эмодзи, интересные факты. "
-        f"У пользователя есть {user['free_count']} бесплатных и {user['paid_count']} платных обращений. "
-        f"Используй забавный, дружелюбный и магический стиль с элементами нумерологии."
+    prompt = NUMEROLOGY_PROMPT.format(
+        name=name,
+        pretty_date=pretty_date,
+        disclaimer=DISCLAIMER
     )
 
     # Используем функцию с прогресс-баром

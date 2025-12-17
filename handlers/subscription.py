@@ -48,7 +48,7 @@ async def unsubscribe(message: Message, state: FSMContext):
     user = await get_user(message.from_user.id, message.from_user)
     sub = user.get("subscription") or {}
     if not sub.get("active"):
-        await message.answer(MSG_NOT_SUBSCRIBED, reply_markup=main_menu)
+        await message.answer(MSG_NOT_SUBSCRIBED, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
 
@@ -76,9 +76,9 @@ async def handle_birthdate(message: Message, state: FSMContext):
     user["subscription"] = {
         "active": True,
         "birthdate": message.text.strip(),
-        "time": "13:00",
+        "time": "auto",
         "last_sent": None,
     }
     await save_user(message.from_user.id, user)
     await state.clear()
-    await message.answer(MSG_SUBSCRIBE_OK.format(time="13:00"), reply_markup=menu_for(message.from_user.id))
+    await message.answer(MSG_SUBSCRIBE_OK.format(time="по умолчанию в окне 11:00-19:00"), reply_markup=menu_for(message.from_user.id))

@@ -13,6 +13,7 @@ from keyboards.menus import menu_for, payment_menu, cancel_menu
 import base64
 from handlers.base import PaymentStates
 from utils.rate_limit import check_rate_limit
+from utils.prompts import PHOTO_DESTINY_PROMPT, DISCLAIMER
 
 router = Router()
 
@@ -70,15 +71,7 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
         
         user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
         
-        prompt = (
-            f"Ты магический бот-гадалка 🧙‍♂️✨. "
-            f"Проанализируй это фото и определи судьбу человека на нём. "
-            f"Опиши характер, жизненный путь, таланты, предсказания на будущее. "
-            f"Используй физиогномику, анализ энергетики, магические знаки. "
-            f"Добавь юмор, эмодзи, интересные наблюдения. "
-            f"Пользователь {user_name} имеет {user['free_count']} бесплатных и {user['paid_count']} платных обращений. "
-            f"Используй забавный, дружелюбный и магический стиль с элементами юмора."
-        )
+        prompt = PHOTO_DESTINY_PROMPT.format(disclaimer=DISCLAIMER)
         
         # Используем функцию с прогресс-баром
         from utils.ollama import ask_ollama
@@ -107,7 +100,7 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
     except Exception as e:
         await message.answer(
             f"❌ Произошла ошибка при обработке фото: {e}\nПопробуйте ещё раз.",
-            reply_markup=main_menu
+            reply_markup=menu_for(message.from_user.id)
         )
         await state.clear()
 

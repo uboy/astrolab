@@ -15,6 +15,7 @@ from keyboards.menus import menu_for, payment_menu, payment_type_menu, cancel_me
 from datetime import datetime, timezone
 from handlers.base import PaymentStates
 from utils.zodiac import get_zodiac_sign
+from utils.prompts import HOROSCOPE_PROMPT, DISCLAIMER
 from utils.rate_limit import check_rate_limit
 
 router = Router()
@@ -106,7 +107,7 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     allowed, wait_msg = check_rate_limit(user, "horoscope")
     if not allowed:
         await save_user(message.from_user.id, user)
-        await message.answer(wait_msg, reply_markup=main_menu)
+        await message.answer(wait_msg, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
 
@@ -117,13 +118,11 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     zodiac_name, zodiac_emoji = get_zodiac_sign(dt.month, dt.day)
     zodiac_label = f"{zodiac_emoji} {zodiac_name}"
 
-    prompt = (
-        f"Ты магический бот-гадалка 🧙‍♂️✨. "
-        f"Составь весёлый гороскоп для {user_name}, родившегося {pretty_date}. "
-        f"Знак зодиака: {zodiac_label}. "
-        f"Добавь юмор, эмодзи, советы по жизни, краткий прогноз, "
-        f"укажи, сколько у пользователя есть {user['free_count']} бесплатных и {user['paid_count']} платных обращений. "
-        f"Используй забавный, дружелюбный и магический стиль."
+    prompt = HOROSCOPE_PROMPT.format(
+        user_name=user_name,
+        pretty_date=pretty_date,
+        zodiac_label=zodiac_label,
+        disclaimer=DISCLAIMER
     )
 
     # Используем функцию с прогресс-баром

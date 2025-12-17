@@ -15,6 +15,7 @@ from handlers.base import PaymentStates
 import base64
 from io import BytesIO
 from utils.rate_limit import check_rate_limit
+from utils.prompts import COMPATIBILITY_PROMPT, DISCLAIMER
 
 router = Router()
 
@@ -164,11 +165,10 @@ async def run_compatibility(message: Message, state: FSMContext, bot: Bot):
     await message.answer(MSG_COMPATIBILITY_COLLECTED, reply_markup=cancel_menu)
 
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
-    prompt = (
-        "Ты магический бот-гадалка. Проанализируй совместимость пары.\n"
-        f"Данные от пользователя: {text_details or 'Только фото'}.\n"
-        "Если есть изображения, используй физиогномику/эмоции, но добавь дисклеймер, что это шуточно.\n"
-        f"Укажи уровень совместимости, общие советы и немного юмора. Пользователь: {user_name}."
+    prompt = COMPATIBILITY_PROMPT.format(
+        details=text_details or "Только фото",
+        disclaimer=DISCLAIMER,
+        user_name=user_name
     )
 
     from utils.ollama import ask_ollama
