@@ -41,19 +41,16 @@ async def return_to_main_menu(
         remove_keyboard: Удалить клавиатуру перед возвратом
     """
     from utils.constants import MSG_RETURNING_TO_MENU
-    from keyboards.menus import main_menu
+    from keyboards.menus import menu_for
     from aiogram.types import ReplyKeyboardRemove
     
     await state.clear()
     
-    if remove_keyboard:
-        # Отправляем одно сообщение, сразу меняя клавиатуру на главное меню
-        await message.answer(text or MSG_RETURNING_TO_MENU, reply_markup=main_menu)
-    else:
-        await message.answer(
-            text or MSG_RETURNING_TO_MENU,
-            reply_markup=main_menu
-        )
+    reply_kb = menu_for(message.from_user.id)
+    await message.answer(
+        text or MSG_RETURNING_TO_MENU,
+        reply_markup=reply_kb
+    )
 
 
 def format_response_with_balance(response: str, user: dict) -> str:

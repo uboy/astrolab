@@ -10,7 +10,7 @@ from utils.constants import (
 )
 from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
-from keyboards.menus import main_menu, payment_menu
+from keyboards.menus import menu_for, payment_menu
 from handlers.base import PaymentStates
 from utils.rate_limit import check_rate_limit
 
@@ -73,7 +73,7 @@ async def start_quiz(message: Message, state: FSMContext):
 async def handle_quiz_answer(message: Message, state: FSMContext, bot: Bot):
     if (message.text or "").lower() == BTN_CANCEL.lower():
         await state.clear()
-        await message.answer("Отменено. Возвращаю в меню.", reply_markup=main_menu)
+        await message.answer("Отменено. Возвращаю в меню.", reply_markup=menu_for(message.from_user.id))
         return
 
     data = await state.get_data()
@@ -113,7 +113,7 @@ async def handle_quiz_answer(message: Message, state: FSMContext, bot: Bot):
     allowed, wait_msg = check_rate_limit(user, "zodiac_quiz")
     if not allowed:
         await save_user(message.from_user.id, user)
-        await message.answer(wait_msg, reply_markup=main_menu)
+        await message.answer(wait_msg, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
     response = await process_ollama_with_progress(
@@ -132,7 +132,7 @@ async def handle_quiz_answer(message: Message, state: FSMContext, bot: Bot):
 
     await message.answer(
         format_response_with_balance(response, user),
-        reply_markup=main_menu,
+        reply_markup=menu_for(message.from_user.id),
         parse_mode='HTML'
     )
     await state.clear()

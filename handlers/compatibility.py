@@ -10,7 +10,7 @@ from utils.constants import (
 )
 from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
-from keyboards.menus import main_menu, payment_menu, cancel_or_done_menu, cancel_menu
+from keyboards.menus import menu_for, payment_menu, cancel_or_done_menu, cancel_menu
 from handlers.base import PaymentStates
 import base64
 from io import BytesIO
@@ -57,7 +57,7 @@ async def choose_mode(message: Message, state: FSMContext):
     text = message.text.strip()
     if text.lower() == BTN_CANCEL.lower():
         await state.clear()
-        await message.answer("Возвращаю в меню.", reply_markup=main_menu)
+        await message.answer("Возвращаю в меню.", reply_markup=menu_for(message.from_user.id))
         return
 
     if text == MODE_TEXT:
@@ -84,7 +84,7 @@ async def choose_mode(message: Message, state: FSMContext):
 async def get_text_details(message: Message, state: FSMContext, bot: Bot):
     if message.text.lower() == BTN_CANCEL.lower():
         await state.clear()
-        await message.answer("Отменено. Меню открыто.", reply_markup=main_menu)
+        await message.answer("Отменено. Меню открыто.", reply_markup=menu_for(message.from_user.id))
         return
 
     names = [x.strip() for x in message.text.replace("\n", ",").split(",") if x.strip()]
@@ -111,7 +111,7 @@ async def _photo_to_base64(bot: Bot, file_id: str) -> str:
 async def collect_photos(message: Message, state: FSMContext, bot: Bot):
     if message.text and message.text.lower() == BTN_CANCEL.lower():
         await state.clear()
-        await message.answer("Отменено. Меню открыто.", reply_markup=main_menu)
+        await message.answer("Отменено. Меню открыто.", reply_markup=menu_for(message.from_user.id))
         return
 
     data = await state.get_data()
@@ -153,7 +153,7 @@ async def run_compatibility(message: Message, state: FSMContext, bot: Bot):
     allowed, wait_msg = check_rate_limit(user, "compatibility")
     if not allowed:
         await save_user(message.from_user.id, user)
-        await message.answer(wait_msg, reply_markup=main_menu)
+        await message.answer(wait_msg, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
 
@@ -188,6 +188,6 @@ async def run_compatibility(message: Message, state: FSMContext, bot: Bot):
 
     await message.answer(
         format_response_with_balance(response, user),
-        reply_markup=main_menu, parse_mode='HTML'
+        reply_markup=menu_for(message.from_user.id), parse_mode='HTML'
     )
     await state.clear()

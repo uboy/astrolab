@@ -10,7 +10,7 @@ from utils.constants import (
     MSG_ALREADY_SUBSCRIBED, MSG_NOT_SUBSCRIBED, MSG_SUB_INVALID_DATE
 )
 from utils.user_helpers import get_user, save_user
-from keyboards.menus import main_menu, cancel_menu
+from keyboards.menus import menu_for, cancel_menu
 
 router = Router()
 
@@ -56,14 +56,14 @@ async def unsubscribe(message: Message, state: FSMContext):
     user["subscription"] = sub
     await save_user(message.from_user.id, user)
     await state.clear()
-    await message.answer(MSG_UNSUB_OK, reply_markup=main_menu)
+    await message.answer(MSG_UNSUB_OK, reply_markup=menu_for(message.from_user.id))
 
 
 @router.message(SubscriptionStates.waiting_birthdate)
 async def handle_birthdate(message: Message, state: FSMContext):
     if message.text.lower() == BTN_CANCEL.lower():
         await state.clear()
-        await message.answer("Отменено. Возвращаю в меню.", reply_markup=main_menu)
+        await message.answer("Отменено. Возвращаю в меню.", reply_markup=menu_for(message.from_user.id))
         return
 
     try:
@@ -81,4 +81,4 @@ async def handle_birthdate(message: Message, state: FSMContext):
     }
     await save_user(message.from_user.id, user)
     await state.clear()
-    await message.answer(MSG_SUBSCRIBE_OK.format(time="13:00"), reply_markup=main_menu)
+    await message.answer(MSG_SUBSCRIBE_OK.format(time="13:00"), reply_markup=menu_for(message.from_user.id))

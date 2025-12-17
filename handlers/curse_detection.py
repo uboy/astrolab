@@ -8,11 +8,11 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import StateFilter
 from utils.curses_data import CURSES, RITUALS
 from utils.constants import (
-    BTN_LUCK_RESET, BTN_BACK, BTN_YES, BTN_NO, BTN_CANCEL,
+    BTN_LUCK_RESET, BTN_YES, BTN_NO, BTN_CANCEL,
     MSG_LUCK_RESET_RESULT, MSG_LUCK_RESET_RITUAL, MSG_LUCK_RESET_SKIP,
     MSG_RETURNED_TO_MENU, MSG_INVALID_DECISION, MSG_NO_FREE_PAID, MSG_LUCK_RESET_GREETING
 )
-from keyboards.menus import main_menu, payment_menu
+from keyboards.menus import menu_for, payment_menu
 import random
 from handlers.base import PaymentStates
 from utils.user_helpers import check_user_limit, log_user_action, save_user
@@ -39,7 +39,7 @@ async def start_curse_detection(message: Message, state: FSMContext):
     allowed, wait_msg = check_rate_limit(user, "luck_reset")
     if not allowed:
         await save_user(message.from_user.id, user)
-        await message.answer(wait_msg, reply_markup=main_menu)
+        await message.answer(wait_msg, reply_markup=menu_for(message.from_user.id))
         return
     # фиксируем использование небесплатной функции без списания лимита
     ts = datetime.datetime.now(datetime.timezone.utc).timestamp()
@@ -60,7 +60,7 @@ async def start_curse_detection(message: Message, state: FSMContext):
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=BTN_YES), KeyboardButton(text=BTN_NO)],
-            [KeyboardButton(text=BTN_BACK), KeyboardButton(text=BTN_CANCEL)]
+            [KeyboardButton(text=BTN_CANCEL)]
         ],
         resize_keyboard=True
     )
@@ -84,9 +84,9 @@ async def start_curse_detection(message: Message, state: FSMContext):
 async def handle_curse_decision(message: Message, state: FSMContext):
     text = message.text.strip()
     
-    if text.lower() in (BTN_BACK.lower(), BTN_CANCEL.lower()):
+    if text.lower() == BTN_CANCEL.lower():
         await state.clear()
-        await message.answer(MSG_RETURNED_TO_MENU, reply_markup=main_menu)
+        await message.answer(MSG_RETURNED_TO_MENU, reply_markup=menu_for(message.from_user.id))
         await log_user_action(
             message.from_user.id,
             feature="curse_detection_decision",
@@ -105,7 +105,7 @@ async def handle_curse_decision(message: Message, state: FSMContext):
         
         await message.answer(
             MSG_LUCK_RESET_RITUAL.format(ritual=selected_ritual),
-            reply_markup=main_menu, parse_mode='HTML'
+            reply_markup=menu_for(message.from_user.id), parse_mode='HTML'
         )
         await state.clear()
         await log_user_action(
@@ -118,7 +118,7 @@ async def handle_curse_decision(message: Message, state: FSMContext):
     
     if text.lower() in [BTN_NO.lower(), "no"]:
         # Пользователь не хочет снимать проклятие
-        await message.answer(MSG_LUCK_RESET_SKIP, reply_markup=main_menu)
+        await message.answer(MSG_LUCK_RESET_SKIP, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         await log_user_action(
             message.from_user.id,

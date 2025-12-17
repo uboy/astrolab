@@ -92,7 +92,7 @@ async def ask_ollama(
                 content = _parse_generate_response(resp.text)
 
             if not content:
-                content = "Бот не смог сгенерировать ответ. Попробуйте ещё раз."
+                content = "✨ Вселенная не смогла сгенерировать ответ. Попробуйте ещё раз."
 
             # Применяем форматирование
             if apply_formatting:

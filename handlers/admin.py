@@ -20,7 +20,7 @@ from utils.constants import (
     BTN_YES, BTN_NO, BTN_ADMIN_SETTINGS, BTN_ADMIN_LOGS,
     BTN_ADMIN_SUBSCRIBED, BTN_ADMIN_SEND_SUBS
 )
-from keyboards.menus import main_menu
+from keyboards.menus import menu_for
 from utils.user_helpers import save_user
 from utils.subscription_scheduler import send_pending_subscriptions
 
@@ -212,7 +212,7 @@ def _total_paid(user: dict) -> int:
 @router.message(F.text == BTN_ADMIN)
 async def admin_menu(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
-        await message.answer(MSG_NO_ACCESS)
+        await message.answer(MSG_NO_ACCESS, reply_markup=ReplyKeyboardRemove())
         return
     await state.set_state(AdminStates.home)
     await message.answer("Админка: выберите раздел.", reply_markup=_admin_keyboard())
@@ -224,7 +224,7 @@ async def admin_menu(message: Message, state: FSMContext):
 @router.message(AdminStates.home)
 async def admin_home(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
-        await message.answer(MSG_NO_ACCESS)
+        await message.answer(MSG_NO_ACCESS, reply_markup=ReplyKeyboardRemove())
         return
 
     text = message.text.strip()
@@ -232,7 +232,7 @@ async def admin_home(message: Message, state: FSMContext):
         await state.clear()
         await message.answer(MSG_ACTION_CANCELLED, reply_markup=ReplyKeyboardRemove())
         await asyncio.sleep(0.15)
-        await message.answer(MSG_RETURNING_TO_MENU, reply_markup=main_menu)
+        await message.answer(MSG_RETURNING_TO_MENU, reply_markup=menu_for(message.from_user.id))
         return
 
     if text == BTN_ADMIN_USERS:
@@ -303,7 +303,7 @@ async def browse_users(message: Message, state: FSMContext):
         await state.clear()
         await message.answer(MSG_ACTION_CANCELLED, reply_markup=ReplyKeyboardRemove())
         await asyncio.sleep(0.15)
-        await message.answer(MSG_RETURNING_TO_MENU, reply_markup=main_menu)
+        await message.answer(MSG_RETURNING_TO_MENU, reply_markup=menu_for(message.from_user.id))
         return
     data = await state.get_data()
     page = data.get("page", 0)
@@ -386,7 +386,7 @@ async def user_actions(message: Message, state: FSMContext):
         await state.clear()
         await message.answer(MSG_ACTION_CANCELLED, reply_markup=ReplyKeyboardRemove())
         await asyncio.sleep(0.15)
-        await message.answer(MSG_RETURNING_TO_MENU, reply_markup=main_menu)
+        await message.answer(MSG_RETURNING_TO_MENU, reply_markup=menu_for(message.from_user.id))
         return
     data = await state.get_data()
     user_id = data.get("selected_user")
@@ -606,8 +606,8 @@ async def admin_cancel(message: Message, state: FSMContext):
     if is_admin(message.from_user.id):
         await message.answer(MSG_ACTION_CANCELLED, reply_markup=ReplyKeyboardRemove())
         await asyncio.sleep(0.15)
-        await message.answer(MSG_RETURNING_TO_MENU, reply_markup=main_menu)
+        await message.answer(MSG_RETURNING_TO_MENU, reply_markup=menu_for(message.from_user.id))
     else:
         await message.answer(MSG_NO_COMMAND_ACCESS, reply_markup=ReplyKeyboardRemove())
         await asyncio.sleep(0.15)
-        await message.answer(MSG_RETURNING_TO_MENU, reply_markup=main_menu)
+        await message.answer(MSG_RETURNING_TO_MENU, reply_markup=menu_for(message.from_user.id))

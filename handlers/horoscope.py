@@ -11,7 +11,7 @@ from utils.constants import (
 )
 from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
-from keyboards.menus import main_menu, payment_menu, payment_type_menu, cancel_menu
+from keyboards.menus import menu_for, payment_menu, payment_type_menu, cancel_menu
 from datetime import datetime, timezone
 from handlers.base import PaymentStates
 from utils.zodiac import get_zodiac_sign
@@ -62,7 +62,7 @@ async def start_horoscope(message: Message, state: FSMContext):
 )
 async def cancel_birthdate(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer("Хорошо, возвращаемся в главное меню 😊", reply_markup=main_menu)
+    await message.answer("Хорошо, возвращаемся в главное меню 😊", reply_markup=menu_for(message.from_user.id))
 
 
 # ---------------------------------------------------------
@@ -73,7 +73,7 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     # Если пользователь случайно отправил команду
     if message.text.lower() in CANCEL_WORDS:
         await state.clear()
-        await message.answer("Возврат в главное меню.", reply_markup=main_menu)
+        await message.answer("Возврат в главное меню.", reply_markup=menu_for(message.from_user.id))
         return
 
     # Парсинг даты
@@ -88,12 +88,12 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     age = today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
 
     if age < 18:
-        await message.answer(MSG_UNDERAGE, reply_markup=main_menu)
+        await message.answer(MSG_UNDERAGE, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
 
     if age > 100:
-        await message.answer(MSG_OVERAGE, reply_markup=main_menu)
+        await message.answer(MSG_OVERAGE, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
 
@@ -147,7 +147,7 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     formatted = f"{zodiac_label}\n\n{response}"
     await message.answer(
         format_response_with_balance(formatted, user),
-        reply_markup=main_menu,
+        reply_markup=menu_for(message.from_user.id),
         parse_mode='HTML'
     )
     await state.clear()
