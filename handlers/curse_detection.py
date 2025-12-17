@@ -18,7 +18,7 @@ from handlers.base import PaymentStates
 from utils.user_helpers import check_user_limit, log_user_action, save_user
 from utils.rate_limit import check_rate_limit
 import datetime
-from utils.pricing_helpers import ensure_balance_and_charge
+from utils.pricing_helpers import ensure_balance_and_charge, show_price_info
 
 router = Router()
 
@@ -39,6 +39,8 @@ async def start_curse_detection(message: Message, state: FSMContext):
         return
     # Случайно выбираем забавный сценарий неудачи
     selected_curse = random.choice(CURSES)
+
+    await show_price_info(message, user, "luck_reset", "Перезапуск удачи")
     allowed, wait_msg = check_rate_limit(user, "luck_reset")
     if not allowed:
         await save_user(message.from_user.id, user)

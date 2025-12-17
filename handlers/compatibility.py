@@ -16,7 +16,7 @@ import base64
 from io import BytesIO
 from utils.rate_limit import check_rate_limit
 from utils.prompts import COMPATIBILITY_PROMPT, DISCLAIMER
-from utils.pricing_helpers import ensure_balance_and_charge
+from utils.pricing_helpers import ensure_balance_and_charge, show_price_info
 
 router = Router()
 
@@ -44,7 +44,8 @@ def _mode_keyboard():
 
 @router.message(F.text.func(lambda t: t and t.startswith(BTN_COMPATIBILITY)), StateFilter(None))
 async def start_compatibility(message: Message, state: FSMContext):
-    await get_user(message.from_user.id, message.from_user)
+    user = await get_user(message.from_user.id, message.from_user)
+    await show_price_info(message, user, "compatibility", "Совместимость")
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
     await message.answer(
         MSG_COMPATIBILITY_GREETING.format(name=user_name) + "\n\n" + MSG_COMPATIBILITY_PHOTO_PROMPT,

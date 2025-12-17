@@ -12,6 +12,7 @@ from utils.constants import (
 from utils.user_helpers import get_user, save_user
 from keyboards.menus import menu_for, cancel_menu
 from utils.prices import get_prices
+from utils.pricing_helpers import show_price_info
 
 router = Router()
 
@@ -30,12 +31,13 @@ def _unsubscribe_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-@router.message(F.text == BTN_SUBSCRIBE, StateFilter(None))
+@router.message(F.text.func(lambda t: t and t.startswith(BTN_SUBSCRIBE)), StateFilter(None))
 async def start_subscribe(message: Message, state: FSMContext):
     user = await get_user(message.from_user.id, message.from_user)
     sub = user.get("subscription") or {}
     prices = await get_prices()
     price = prices.get("subscription", 1)
+    await show_price_info(message, user, "subscription", "Подписка на гороскоп")
 
     if sub.get("active"):
         await state.clear()

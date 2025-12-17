@@ -14,7 +14,7 @@ from keyboards.menus import menu_for, payment_menu
 from handlers.base import PaymentStates
 from utils.rate_limit import check_rate_limit
 from utils.prompts import ZODIAC_QUIZ_PROMPT, DISCLAIMER
-from utils.pricing_helpers import ensure_balance_and_charge
+from utils.pricing_helpers import ensure_balance_and_charge, show_price_info
 
 router = Router()
 
@@ -63,6 +63,8 @@ async def start_quiz(message: Message, state: FSMContext):
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
         await state.set_state(PaymentStates.choosing_amount)
         return
+
+    await show_price_info(message, user, "zodiac_quiz", "Угадай мой знак")
 
     await state.update_data(index=0, answers=[])
     await state.set_state(ZodiacQuizStates.asking)

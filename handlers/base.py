@@ -15,13 +15,14 @@ from utils.constants import (
     MSG_ABOUT_COMPANY, MSG_FALLBACK_GREETING,
     ALL_MENU_BUTTONS, DEFAULT_USER_NAME, DEFAULT_USER_NAME_LOWER, MSG_NOT_ENOUGH_FUNDS, PREMIUM_PLANS
 )
-from utils.user_helpers import get_user_name, get_user, save_user, log_user_action, activate_premium, has_balance, decrement_user_limit
+from utils.user_helpers import get_user_name, get_user, save_user, log_user_action, activate_premium, has_balance, decrement_user_limit, format_balance
 from utils.message_helpers import return_to_main_menu
 from keyboards.menus import menu_for, payment_type_menu
 import asyncio
 import random
 from utils.prompts import DISCLAIMER
 from utils.prices import get_prices
+from utils.pricing_helpers import show_price_info
 
 router = Router()
 
@@ -61,6 +62,9 @@ async def payment_start(message: Message, state: FSMContext):
 async def premium_start(message: Message, state: FSMContext):
     await state.clear()
     prices = await get_prices()
+    user = await get_user(message.from_user.id, message.from_user)
+    balance_text = format_balance(user)
+    min_price = min(prices.get('premium_1d', 5), prices.get('premium_2d', 8), prices.get('premium_3d', 10))
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=f"{BTN_PREMIUM_1D} ({prices.get('premium_1d', 5)} у.е)")],
@@ -71,7 +75,7 @@ async def premium_start(message: Message, state: FSMContext):
         resize_keyboard=True
     )
     await state.set_state(PaymentStates.choosing_premium)
-    await message.answer("Выберите премиум-подписку:", reply_markup=keyboard)
+    await message.answer(f"Премиум-подписка: списание по выбранному плану (от {min_price} у.е).\n{balance_text}", reply_markup=keyboard)
 
 
 @router.message(PaymentStates.choosing_premium)
