@@ -18,11 +18,12 @@ from utils.constants import (
     BTN_ADMIN_USER_SEND,
     MSG_ADMIN_TIME_OK, MSG_ADMIN_INVALID_TIME, MSG_ADMIN_NO_USER,
     BTN_YES, BTN_NO, BTN_ADMIN_SETTINGS, BTN_ADMIN_LOGS,
-    BTN_ADMIN_SUBSCRIBED, BTN_ADMIN_SEND_SUBS
+    BTN_ADMIN_SUBSCRIBED, BTN_ADMIN_SEND_SUBS, BTN_ADMIN_PRICES
 )
 from keyboards.menus import menu_for
 from utils.user_helpers import save_user
 from utils.subscription_scheduler import send_pending_subscriptions
+from utils.prices import get_prices, set_price
 
 router = Router()
 
@@ -37,6 +38,7 @@ class AdminStates(StatesGroup):
     waiting_broadcast = State()
     waiting_delete_confirm = State()
     waiting_user_message = State()
+    waiting_price = State()
 
 
 # -----------------------------
@@ -50,6 +52,7 @@ def _admin_keyboard(extra_buttons=None):
     rows = [
         [KeyboardButton(text=BTN_ADMIN_USERS), KeyboardButton(text=BTN_ADMIN_SUBSCRIBED)],
         [KeyboardButton(text=BTN_ADMIN_SEND_SUBS), KeyboardButton(text=BTN_ADMIN_BROADCAST)],
+        [KeyboardButton(text=BTN_ADMIN_PRICES)],
         [KeyboardButton(text=BTN_ADMIN_SETTINGS), KeyboardButton(text=BTN_ADMIN_LOGS)],
         [KeyboardButton(text=BTN_CANCEL)]
     ]
@@ -155,6 +158,9 @@ async def _send_user_summary(message: Message, user_id: str, user_data: dict, st
     sub_time = sub.get("time", "-")
     sub_birth = sub.get("birthdate", "-")
     sub_last = sub.get("last_sent", "-")
+    premium = user_data.get("premium") or {}
+    premium_status = "активен" if premium.get("active") else "не активен"
+    premium_until = premium.get("until", "-")
     profile = user_data.get("profile") or {}
     profile_fields = []
     for key, label in [("first_name", "Имя"), ("last_name", "Фамилия"), ("username", "Username"), ("language_code", "Язык"), ("is_premium", "Premium"), ("phone_number", "Телефон")]:
@@ -176,7 +182,8 @@ async def _send_user_summary(message: Message, user_id: str, user_data: dict, st
         f"Баланс: {balance}, всего куплено: {total_paid}\n"
         f"Обращений всего: {history_len}, записей действий: {actions_len}\n"
         f"Первое появление: {first_seen}\nПоследняя активность: {last_seen}\n"
-        f"Подписка: {sub_status} (время {sub_time}, дата {sub_birth}, последнее {sub_last})",
+        f"Подписка: {sub_status} (время {sub_time}, дата {sub_birth}, последнее {sub_last})\n"
+        f"Премиум: {premium_status} (до {premium_until})",
         reply_markup=_user_action_keyboard(sub.get('active', False))
     )
     await state.update_data(selected_user=user_id)
@@ -250,6 +257,12 @@ async def admin_home(message: Message, state: FSMContext):
         sent = await send_pending_subscriptions(message.bot, force=True)
         await message.answer(f"Разослано подписчикам: {sent}", reply_markup=_admin_keyboard())
         return
+    if text == BTN_ADMIN_PRICES:
+        prices = await get_prices()
+        text_lines = [f"{k}: {v} у.е" for k, v in prices.items()]
+        await state.set_state(AdminStates.waiting_price)
+        await message.answer("Текущие цены:\n" + "\n".join(text_lines) + "\nВведите: название цена (например, horoscope 2)", reply_markup=_admin_keyboard())
+        return
 
     if text == BTN_ADMIN_BROADCAST:
         await state.set_state(AdminStates.waiting_broadcast)
@@ -267,7 +280,8 @@ async def admin_home(message: Message, state: FSMContext):
             f"RATE_LIMIT_PER_HOUR: {getattr(settings, 'RATE_LIMIT_PER_HOUR', '-')}\n"
             f"FREE_MESSAGES_COUNT: {getattr(settings, 'FREE_MESSAGES_COUNT', '-')}\n"
             f"ADMINS: {', '.join(map(str, getattr(settings, 'ADMINS', [])))}\n"
-            f"LOG_LEVEL: {getattr(settings, 'LOG_LEVEL', '-')}"
+            f"LOG_LEVEL: {getattr(settings, 'LOG_LEVEL', '-')}\n"
+            f"TIMEZONE: {getattr(settings, 'TIMEZONE', '-')}"
         )
         await message.answer(settings_text, reply_markup=_admin_keyboard())
         return
@@ -285,7 +299,6 @@ async def admin_home(message: Message, state: FSMContext):
             chunk = content[i:i + max_chunk]
             await message.answer(chunk, reply_markup=_admin_keyboard() if i + max_chunk >= len(content) else ReplyKeyboardRemove())
         return
-
     await message.answer("Выберите раздел кнопкой.", reply_markup=_admin_keyboard())
 
 
@@ -324,17 +337,25 @@ async def browse_users(message: Message, state: FSMContext):
         sent = await send_pending_subscriptions(message.bot, force=True)
         await message.answer(f"Разослано подписчикам: {sent}", reply_markup=_admin_keyboard())
         return
+    if text == BTN_ADMIN_PRICES:
+        prices = await get_prices()
+        text_lines = [f"{k}: {v} у.е" for k, v in prices.items()]
+        await state.set_state(AdminStates.waiting_price)
+        await message.answer("Текущие цены:\n" + "\n".join(text_lines) + "\nВведите: название цена (например, horoscope 2)", reply_markup=_admin_keyboard())
+        return
     if text == BTN_ADMIN_SETTINGS:
         from utils.config import settings
         settings_text = (
             f"⚙️ Настройки бота:\n"
             f"OLLAMA_URL: {getattr(settings, 'OLLAMA_URL', '-')}\n"
             f"OLLAMA_MODEL: {getattr(settings, 'OLLAMA_MODEL', '-')}\n"
+            f"OLLAMA_VISION_MODEL: {getattr(settings, 'OLLAMA_VISION_MODEL', '-')}\n"
             f"RATE_LIMIT_PER_MIN: {getattr(settings, 'RATE_LIMIT_PER_MIN', '-')}\n"
             f"RATE_LIMIT_PER_HOUR: {getattr(settings, 'RATE_LIMIT_PER_HOUR', '-')}\n"
             f"FREE_MESSAGES_COUNT: {getattr(settings, 'FREE_MESSAGES_COUNT', '-')}\n"
             f"ADMINS: {', '.join(map(str, getattr(settings, 'ADMINS', [])))}\n"
-            f"LOG_LEVEL: {getattr(settings, 'LOG_LEVEL', '-')}"
+            f"LOG_LEVEL: {getattr(settings, 'LOG_LEVEL', '-')}\n"
+            f"TIMEZONE: {getattr(settings, 'TIMEZONE', '-')}"
         )
         await message.answer(settings_text, reply_markup=_admin_keyboard())
         return
@@ -441,7 +462,7 @@ async def user_actions(message: Message, state: FSMContext):
 
     if text == BTN_ADMIN_USER_SET_TIME:
         await state.set_state(AdminStates.waiting_update_time_user)
-        await message.answer("Введите время ЧЧ:ММ (12:00–15:00) для пользователя.", reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=BTN_CANCEL)]], resize_keyboard=True))
+        await message.answer("Введите время ЧЧ:ММ (любое, например 14:30) для пользователя.", reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=BTN_CANCEL)]], resize_keyboard=True))
         return
 
     if text == BTN_ADMIN_USER_SEND:
@@ -493,7 +514,7 @@ async def admin_set_time(message: Message, state: FSMContext):
         await message.answer(MSG_ADMIN_INVALID_TIME)
         return
 
-    hours = max(12, min(15, hours))
+    hours = max(0, min(23, hours))
     minutes = max(0, min(59, minutes))
     normalized_time = f"{hours:02d}:{minutes:02d}"
 
@@ -595,11 +616,37 @@ async def admin_broadcast_send(message: Message, state: FSMContext, bot: Bot):
 
 
 # -----------------------------
+# Установка цены
+# -----------------------------
+@router.message(AdminStates.waiting_price)
+async def admin_set_price(message: Message, state: FSMContext):
+    if message.text.strip().lower() == BTN_CANCEL.lower():
+        await state.clear()
+        await message.answer(MSG_ACTION_CANCELLED, reply_markup=_admin_keyboard())
+        return
+    parts = message.text.strip().split()
+    if len(parts) != 2:
+        await message.answer("Используйте формат: название цена (например, horoscope 2)", reply_markup=_admin_keyboard())
+        return
+    feature, price_str = parts
+    try:
+        price_val = int(price_str)
+    except ValueError:
+        await message.answer("Цена должна быть числом.", reply_markup=_admin_keyboard())
+        return
+    await set_price(feature, price_val)
+    prices = await get_prices()
+    text_lines = [f"{k}: {v}" for k, v in prices.items()]
+    await message.answer("Цены обновлены:\n" + "\n".join(text_lines), reply_markup=_admin_keyboard())
+    await state.clear()
+
+
+# -----------------------------
 # Отмена действия
 # -----------------------------
 @router.message(
     F.text == BTN_CANCEL,
-    StateFilter(AdminStates.browsing_users, AdminStates.user_actions, AdminStates.waiting_update_time_user, AdminStates.waiting_broadcast, AdminStates.waiting_delete_confirm)
+    StateFilter(AdminStates.home, AdminStates.browsing_users, AdminStates.user_actions, AdminStates.waiting_update_time_user, AdminStates.waiting_broadcast, AdminStates.waiting_delete_confirm, AdminStates.waiting_user_message, AdminStates.waiting_price)
 )
 async def admin_cancel(message: Message, state: FSMContext):
     await state.clear()

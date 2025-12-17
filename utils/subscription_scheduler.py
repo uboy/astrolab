@@ -2,13 +2,35 @@ import asyncio
 from datetime import datetime, time, timedelta
 from typing import Tuple
 import hashlib
+from zoneinfo import ZoneInfo
+from utils.config import settings
 from utils.json_db import read_json, write_json
+from utils.prices import get_prices
+from utils.user_helpers import has_balance, decrement_user_limit
 from utils.zodiac import get_zodiac_sign
 from utils.ollama import ask_ollama
 from utils.logging_config import get_logger
 from utils.constants import DEFAULT_USER_NAME
 
 logger = get_logger(__name__)
+
+
+def _detect_tz():
+    tz_name = getattr(settings, "TIMEZONE", "") or ""
+    if tz_name and tz_name.lower() != "local":
+        try:
+            return ZoneInfo(tz_name)
+        except Exception:
+            logger.warning("Не удалось загрузить таймзону %s, используем локальную.", tz_name)
+    try:
+        return datetime.now().astimezone().tzinfo or ZoneInfo("UTC")
+    except Exception:
+        return ZoneInfo("UTC")
+
+
+def _now_local() -> datetime:
+    tz = _detect_tz()
+    return datetime.now(tz)
 
 
 def _default_send_time(user_id: str) -> time:
@@ -20,7 +42,8 @@ def _default_send_time(user_id: str) -> time:
     uid_bytes = str(user_id).encode()
     h = hashlib.md5(uid_bytes).hexdigest()
     offset = int(h, 16) % window_minutes
-    start_dt = datetime.combine(datetime.now().date(), window_start)
+    now = _now_local()
+    start_dt = datetime.combine(now.date(), window_start, tzinfo=now.tzinfo)
     send_dt = start_dt + timedelta(minutes=offset)
     return send_dt.time()
 
@@ -65,10 +88,12 @@ async def _build_horoscope_prompt(user: dict) -> Tuple[str, str]:
 
 async def _process_once(bot, force: bool = False) -> int:
     users = await read_json("data/users.json")
+    prices = await get_prices()
+    sub_price = prices.get("subscription", 1)
     if not users:
         return 0
 
-    now = datetime.now()
+    now = _now_local()
     today_iso = now.date().isoformat()
     changed = False
     sent = 0
@@ -85,19 +110,33 @@ async def _process_once(bot, force: bool = False) -> int:
             send_time = _default_send_time(uid)
         else:
             send_time = parsed_time
-        target_dt = datetime.combine(now.date(), send_time)
+        target_dt = datetime.combine(now.date(), send_time, tzinfo=now.tzinfo)
 
         if sub.get("last_sent") == today_iso and not force:
             continue
 
         if now >= target_dt or force:
             try:
+                if not has_balance(user, sub_price):
+                    sub["active"] = False
+                    user["subscription"] = sub
+                    users[uid] = user
+                    try:
+                        await bot.send_message(int(uid), f"Подписка остановлена: не хватило {sub_price} у.е на счету.")
+                    except Exception:
+                        logger.warning("Не удалось уведомить пользователя %s об остановке подписки", uid)
+                    changed = True
+                    continue
+
                 prompt, title = await _build_horoscope_prompt(user)
                 response = await ask_ollama(prompt)
                 text = response if response.strip() else title
                 await bot.send_message(int(uid), f"{title}\n\n{text}")
+                # списываем оплату за отправку
+                user = await decrement_user_limit(int(uid), price=sub_price, feature="subscription_send", details={"date": today_iso})
                 sub["last_sent"] = today_iso
                 user["subscription"] = sub
+                users[uid] = user
                 changed = True
                 sent += 1
             except Exception as e:

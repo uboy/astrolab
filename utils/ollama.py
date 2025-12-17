@@ -6,9 +6,23 @@ import base64
 from utils.config import settings
 import re
 from utils.logging_config import get_logger
+import time
+from utils import ollama_stats
 
 logger = get_logger(__name__)
 MAX_TELEGRAM_LENGTH = 4000
+
+
+def choose_model(images: Optional[List[str]] = None, files: Optional[List[Union[str, Path]]] = None, model: Optional[str] = None) -> str:
+    """
+    Определить модель для запроса, учитывая мультимодальность и явное указание.
+    """
+    if model:
+        return model
+    has_multimodal = bool((images and len(images) > 0) or (files and len(files) > 0))
+    if has_multimodal:
+        return settings.OLLAMA_VISION_MODEL
+    return settings.OLLAMA_MODEL
 
 
 async def ask_ollama(
@@ -54,12 +68,7 @@ async def ask_ollama(
         )
     """
     # Определяем модель
-    if model is None:
-        # Если есть изображения или файлы, используем vision модель
-        if (images and len(images) > 0) or (files and len(files) > 0):
-            model = settings.OLLAMA_VISION_MODEL
-        else:
-            model = settings.OLLAMA_MODEL
+    model = choose_model(images=images, files=files, model=model)
 
     # Определяем endpoint и формат запроса
     has_multimodal = bool((images and len(images) > 0) or (files and len(files) > 0))
@@ -80,6 +89,7 @@ async def ask_ollama(
                  f"Изображений: {len(images) if images else 0}, Файлов: {len(files) if files else 0}, "
                  f"Таймаут: {default_timeout}с")
 
+    start_ts = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=default_timeout) as client:
             resp = await client.post(url, json=payload)
@@ -102,6 +112,11 @@ async def ask_ollama(
             if len(content) > MAX_TELEGRAM_LENGTH:
                 content = content[:MAX_TELEGRAM_LENGTH - 3] + "..."
 
+            duration = time.monotonic() - start_ts
+            try:
+                await ollama_stats.record_duration(model, duration)
+            except Exception:
+                logger.debug("Не удалось сохранить статистику по модели", exc_info=True)
             return content
 
     except httpx.HTTPStatusError as e:
