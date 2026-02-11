@@ -1,6 +1,6 @@
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-from handlers import base, horoscope, compatibility, numerology, photo_destiny, curse, curse_detection, admin, subscription
+from handlers import base, horoscope, compatibility, candidate_compatibility, numerology, photo_destiny, curse, curse_detection, admin, subscription
 from utils.config import settings
 import asyncio
 from utils.subscription_scheduler import run_subscription_scheduler
@@ -16,6 +16,7 @@ async def main():
     # Регистрируем роутеры
     dp.include_router(horoscope.router)
     dp.include_router(compatibility.router)
+    dp.include_router(candidate_compatibility.router)
     dp.include_router(numerology.router)
     dp.include_router(photo_destiny.router)
     dp.include_router(curse.router)

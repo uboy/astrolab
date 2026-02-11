@@ -18,6 +18,8 @@ from utils.rate_limit import check_rate_limit
 from utils.prompts import COMPATIBILITY_PROMPT, DISCLAIMER
 from utils.pricing_helpers import ensure_balance_and_charge, show_price_info
 
+from utils.button_matchers import is_compatibility_button
+
 router = Router()
 
 MODE_TEXT = "Ввести имена и даты"
@@ -42,7 +44,7 @@ def _mode_keyboard():
     )
 
 
-@router.message(F.text.func(lambda t: t and t.startswith(BTN_COMPATIBILITY)), StateFilter(None))
+@router.message(F.text.func(is_compatibility_button), StateFilter(None))
 async def start_compatibility(message: Message, state: FSMContext):
     user = await get_user(message.from_user.id, message.from_user)
     await show_price_info(message, user, "compatibility", "Совместимость")

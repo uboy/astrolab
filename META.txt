@@ -1,5 +1,5 @@
-step: 14
-date: 2025-12-22
+step: 15
+date: 2026-02-11
 member: dev_shvechikov
-commit: c4842ac
-subject: update horoscope - 1 week and subsciption for today and next day
+commit: 40c8ae4
+subject: Add candidate compatibility feature and resume parsing
