@@ -57,7 +57,8 @@ def build_humorous_response(profile: dict, score: int, reasons: list[str]) -> st
     verdict = "Совместим ✅" if score >= 70 else "Скорее совместим 🤝" if score >= 50 else "Не совместим ❌"
     summary = _build_candidate_summary(profile)
     reason_text = "; ".join(reasons) if reasons else "Магия сказала «давайте попробуем»"
-    return f"Вердикт: {verdict}\nКандидат: {summary}\nСкор: {score}/100\nПочему: {reason_text}"
+    opener = "Похоже, HR-кофемашина уже довольна." if score >= 70 else "Есть шанс, что команда не спрячется в переговорке." if score >= 50 else "Похоже, корпоративный мем-чат пока не готов."
+    return f"{opener}\nВердикт: {verdict}\nКандидат: {summary}\nСкор: {score}/100\nПочему: {reason_text}"
 
 
 def _build_candidate_summary(profile: dict) -> str:

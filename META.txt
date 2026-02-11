@@ -1,5 +1,5 @@
-step: 16
+step: 17
 date: 2026-02-11
 member: dev_luzhbina
-commit: da015d3
-subject: Improve resume extraction and guard candidate compatibility parsing
+commit: f80d490
+subject: Use Ollama for candidate compatibility analysis and humorous output
