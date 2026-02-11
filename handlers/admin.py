@@ -9,14 +9,16 @@ import asyncio
 from utils.constants import (
     BTN_ADMIN, BTN_CANCEL,
     MSG_NO_ACCESS, MSG_NO_COMMAND_ACCESS, MSG_ADMIN_MENU,
-    MSG_NO_USERS, MSG_LIMITS_RESET,
+    MSG_NO_USERS,
     MSG_ACTION_CANCELLED, MSG_RETURNING_TO_MENU,
     BTN_ADMIN_BROADCAST, MSG_ADMIN_BROADCAST_ASK, MSG_ADMIN_BROADCAST_DONE,
     BTN_ADMIN_USERS, BTN_ADMIN_NEXT_PAGE, BTN_ADMIN_PREV_PAGE, BTN_ADMIN_BACK_USERS,
     BTN_ADMIN_USER_INFO, BTN_ADMIN_USER_HISTORY, BTN_ADMIN_USER_RESET,
+    BTN_ADMIN_USER_SET_BALANCE,
     BTN_ADMIN_USER_SUBSCRIBE, BTN_ADMIN_USER_UNSUBSCRIBE, BTN_ADMIN_USER_SET_TIME, BTN_ADMIN_USER_DELETE,
     BTN_ADMIN_USER_SEND,
     MSG_ADMIN_TIME_OK, MSG_ADMIN_INVALID_TIME, MSG_ADMIN_NO_USER,
+    MSG_ADMIN_USER_BALANCE_PROMPT, MSG_ADMIN_USER_BALANCE_SET,
     BTN_YES, BTN_NO, BTN_ADMIN_SETTINGS, BTN_ADMIN_LOGS,
     BTN_ADMIN_SUBSCRIBED, BTN_ADMIN_SEND_SUBS, BTN_ADMIN_PRICES, BTN_ADMIN_COMPANY_PARAMS, BTN_ADMIN_ABOUT_BOT,
     BTN_ADMIN_COMPANY_PARAMS_TEMPLATE,
@@ -37,6 +39,7 @@ class AdminStates(StatesGroup):
     browsing_users = State()
     user_actions = State()
     waiting_update_time_user = State()
+    waiting_set_balance_user = State()
     waiting_broadcast = State()
     waiting_delete_confirm = State()
     waiting_user_message = State()
@@ -80,7 +83,8 @@ def _user_action_keyboard(sub_active: bool):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=BTN_ADMIN_USER_INFO), KeyboardButton(text=BTN_ADMIN_USER_HISTORY)],
-            [KeyboardButton(text=BTN_ADMIN_USER_RESET), KeyboardButton(text=sub_button)],
+            [KeyboardButton(text=BTN_ADMIN_USER_RESET), KeyboardButton(text=BTN_ADMIN_USER_SET_BALANCE)],
+            [KeyboardButton(text=sub_button)],
             [KeyboardButton(text=BTN_ADMIN_USER_SET_TIME), KeyboardButton(text=BTN_ADMIN_USER_SEND)],
             [KeyboardButton(text=BTN_ADMIN_USER_DELETE)],
             [KeyboardButton(text=BTN_ADMIN_BACK_USERS)]
@@ -477,7 +481,18 @@ async def user_actions(message: Message, state: FSMContext):
         user["paid_count"] = 0
         users[user_id] = user
         await write_json("data/users.json", users)
-        await message.answer(MSG_LIMITS_RESET, reply_markup=_user_action_keyboard(user.get('subscription', {}).get('active', False)))
+        await message.answer(
+            f"✅ Лимиты пользователя {user_id} сброшены: Free={settings.FREE_MESSAGES_COUNT}, Paid=0.",
+            reply_markup=_user_action_keyboard(user.get('subscription', {}).get('active', False))
+        )
+        return
+
+    if text == BTN_ADMIN_USER_SET_BALANCE:
+        await state.set_state(AdminStates.waiting_set_balance_user)
+        await message.answer(
+            MSG_ADMIN_USER_BALANCE_PROMPT,
+            reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=BTN_CANCEL)]], resize_keyboard=True)
+        )
         return
 
     if text == BTN_ADMIN_USER_SUBSCRIBE:
@@ -566,6 +581,51 @@ async def admin_set_time(message: Message, state: FSMContext):
     await write_json("data/users.json", users)
     await state.set_state(AdminStates.user_actions)
     await message.answer(MSG_ADMIN_TIME_OK.format(user_id=user_id, time=normalized_time), reply_markup=_user_action_keyboard(sub.get('active', False)))
+
+
+# -----------------------------
+# Изменение free/paid баланса
+# -----------------------------
+@router.message(AdminStates.waiting_set_balance_user)
+async def admin_set_user_balance(message: Message, state: FSMContext):
+    if message.text.strip().lower() == BTN_CANCEL.lower():
+        await state.set_state(AdminStates.user_actions)
+        data = await state.get_data()
+        user_id = data.get("selected_user")
+        users = await read_json("data/users.json")
+        user = users.get(user_id, {})
+        await _send_user_summary(message, user_id, user, state)
+        return
+
+    parts = message.text.strip().split()
+    if len(parts) != 2:
+        await message.answer(MSG_ADMIN_USER_BALANCE_PROMPT)
+        return
+    try:
+        free_count = max(0, int(parts[0]))
+        paid_count = max(0, int(parts[1]))
+    except ValueError:
+        await message.answer("Оба значения должны быть целыми числами.")
+        return
+
+    data = await state.get_data()
+    user_id = data.get("selected_user")
+    users = await read_json("data/users.json")
+    user = users.get(user_id)
+    if not user:
+        await message.answer(MSG_ADMIN_NO_USER.format(user_id=user_id), reply_markup=_admin_keyboard())
+        await state.set_state(AdminStates.browsing_users)
+        return
+
+    user["free_count"] = free_count
+    user["paid_count"] = paid_count
+    users[user_id] = user
+    await write_json("data/users.json", users)
+    await state.set_state(AdminStates.user_actions)
+    await message.answer(
+        MSG_ADMIN_USER_BALANCE_SET.format(user_id=user_id, free=free_count, paid=paid_count),
+        reply_markup=_user_action_keyboard(user.get('subscription', {}).get('active', False))
+    )
 
 
 # -----------------------------
@@ -710,7 +770,7 @@ async def admin_set_company_params(message: Message, state: FSMContext):
 # -----------------------------
 @router.message(
     F.text == BTN_CANCEL,
-    StateFilter(AdminStates.home, AdminStates.browsing_users, AdminStates.user_actions, AdminStates.waiting_update_time_user, AdminStates.waiting_broadcast, AdminStates.waiting_delete_confirm, AdminStates.waiting_user_message, AdminStates.waiting_price, AdminStates.waiting_company_params)
+    StateFilter(AdminStates.home, AdminStates.browsing_users, AdminStates.user_actions, AdminStates.waiting_update_time_user, AdminStates.waiting_set_balance_user, AdminStates.waiting_broadcast, AdminStates.waiting_delete_confirm, AdminStates.waiting_user_message, AdminStates.waiting_price, AdminStates.waiting_company_params)
 )
 async def admin_cancel(message: Message, state: FSMContext):
     await state.clear()

@@ -33,6 +33,7 @@ BTN_ADMIN_BACK_USERS = "↩️ Назад к пользователям"
 BTN_ADMIN_USER_INFO = "ℹ️ Профиль/баланс"
 BTN_ADMIN_USER_HISTORY = "📜 История действий"
 BTN_ADMIN_USER_RESET = "🔄 Сброс лимитов"
+BTN_ADMIN_USER_SET_BALANCE = "💳 Установить баланс"
 BTN_ADMIN_USER_SUBSCRIBE = "✅ Подписать"
 BTN_ADMIN_USER_UNSUBSCRIBE = "🚫 Отписать"
 BTN_ADMIN_USER_SET_TIME = "⏰ Время подписки"
@@ -133,6 +134,7 @@ ADMIN_BUTTONS = {
     BTN_ADMIN_USER_INFO,
     BTN_ADMIN_USER_HISTORY,
     BTN_ADMIN_USER_RESET,
+    BTN_ADMIN_USER_SET_BALANCE,
     BTN_ADMIN_USER_SUBSCRIBE,
     BTN_ADMIN_USER_UNSUBSCRIBE,
     BTN_ADMIN_USER_SET_TIME,
@@ -220,9 +222,17 @@ MSG_OVERAGE = "🎉 Ого! Вы вечно молоды душой — вы з�
 MSG_HOROSCOPE_GREETING = "🧙‍♀️ Привет, {name}! Введите дату рождения в формате ДД.MM.ГГГГ — составлю гороскоп на эту и следующую недели… ✨"
 MSG_COMPATIBILITY_GREETING = "💞 Привет, {name}! Введите два имени через запятую для анализа совместимости:\nНапример: Анна, Денис"
 MSG_CANDIDATE_COMPATIBILITY_GREETING = "🏢 Привет, {name}! Проверим совместимость кандидата с компанией."
-MSG_CANDIDATE_REQUIRED_PROMPT = "Введите {field} кандидата:"
-MSG_CANDIDATE_OPTIONAL_PROMPT = "Введите {field} кандидата (или напишите «Пропустить»):"
-MSG_CANDIDATE_RESUME_PROMPT = "Пришлите резюме (docx/pdf/md) или нажмите «Готово»."
+MSG_CANDIDATE_RESUME_PROMPT = "Пришлите резюме файлом (docx/pdf/md) или текстом одним сообщением."
+MSG_CANDIDATE_TEXT_RESUME_PROMPT = "Если отправляете текстом: вставьте резюме одним сообщением."
+MSG_CANDIDATE_TEXT_RESUME_GUIDE = (
+    "Текстовое резюме должно содержать минимум:\n"
+    "1) Имя и фамилию\n"
+    "2) Пол\n"
+    "3) Возраст\n"
+    "4) Опыт работы (в годах или по датам)\n"
+    "5) Навыки\n\n"
+    "Желательно добавить: email, телефон, локацию, формат работы, образование, языки."
+)
 MSG_CANDIDATE_RESULT_PREFIX = "Итог по совместимости кандидата:"
 MSG_NUMEROLOGY_GREETING = "🔢 Привет, {name}! Для нумерологического анализа мне нужна дата рождения в формате ДД.MM.ГГГГ.\n\nИспользовать имя из профиля ({profile_name}) иначе можешь ввести своё?"
 MSG_NUMEROLOGY_ASK_NAME = "📝 Введите ваше имя для нумерологического анализа:"
@@ -239,6 +249,8 @@ MSG_COMPATIBILITY_PHOTO_PROMPT = "📸 Отправьте 1–2 фото или 
 MSG_COMPATIBILITY_COLLECTED = "🧪 Данные получены! Запускаю магический анализ совместимости..."
 MSG_CANDIDATE_COLLECTED = "🧪 Данные получены! Запускаю проверку совместимости кандидата..."
 MSG_CANDIDATE_FILE_ERROR = "❌ Не удалось прочитать файл резюме. Попробуйте другой файл."
+MSG_CANDIDATE_EXPECT_FILE = "Пришлите файл резюме (docx/pdf/md) или текст резюме одним сообщением."
+MSG_CANDIDATE_PARSE_EMPTY = "❌ Не смог разобрать резюме: не вижу ФИО, опыта или навыков. Пришлите более структурированный файл/текст."
 
 # Админские сообщения
 MSG_ADMIN_MENU = "🛠️ Админка: выберите действие"
@@ -250,6 +262,8 @@ MSG_ADMIN_UNSUB_OK = "✅ Пользователь {user_id} отписан от
 MSG_ADMIN_TIME_OK = "⏰ Время рассылки для {user_id} установлено: {time}."
 MSG_ADMIN_INVALID_TIME = "⚠️ Введите время в формате ЧЧ:ММ (12:00–15:00)."
 MSG_ADMIN_NO_USER = "Пользователь с ID {user_id} не найден."
+MSG_ADMIN_USER_BALANCE_PROMPT = "Введите два числа: free paid (например: 5 20)."
+MSG_ADMIN_USER_BALANCE_SET = "✅ Баланс пользователя {user_id} обновлен: Free={free}, Paid={paid}."
 MSG_ADMIN_BROADCAST_ASK = "Введите текст уведомления для всех подписчиков:"
 MSG_ADMIN_BROADCAST_DONE = "✅ Уведомление отправлено подписчикам: {count} чел."
 MSG_ADMIN_COMPANY_PARAMS_PROMPT = "Текущие параметры компании:\n{text}\n\nВведите новый текст или «Отмена»."

@@ -4,6 +4,8 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
+ARG BOT_VERSION=unknown
+ENV BOT_VERSION=${BOT_VERSION}
 
 # Ставим базовые зависимости
 RUN apt-get update && \

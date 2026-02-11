@@ -31,6 +31,28 @@ def extract_resume_text(file_bytes: bytes, filename: str, content_type: str) -> 
 
 
 def _extract_docx_text(file_bytes: bytes) -> str:
+    # Prefer python-docx for real-world documents with tables/headers.
+    try:
+        from docx import Document  # type: ignore
+
+        document = Document(BytesIO(file_bytes))
+        parts = []
+        for p in document.paragraphs:
+            if p.text and p.text.strip():
+                parts.append(p.text.strip())
+        for table in document.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    text = cell.text.strip()
+                    if text:
+                        parts.append(text)
+        joined = "\n".join(parts).strip()
+        if joined:
+            return joined
+    except Exception:
+        pass
+
+    # Fallback parser for minimal DOCX structures.
     try:
         with zipfile.ZipFile(BytesIO(file_bytes)) as zf:
             data = zf.read("word/document.xml")
@@ -52,6 +74,24 @@ def _extract_docx_text(file_bytes: bytes) -> str:
 def _extract_pdf_text(file_bytes: bytes) -> str:
     if not file_bytes.startswith(b"%PDF"):
         raise ValueError("Invalid pdf header")
+
+    # Prefer pypdf for normal PDFs with compressed streams.
+    try:
+        from pypdf import PdfReader  # type: ignore
+
+        reader = PdfReader(BytesIO(file_bytes))
+        chunks = []
+        for page in reader.pages:
+            page_text = page.extract_text() or ""
+            if page_text.strip():
+                chunks.append(page_text.strip())
+        joined = "\n".join(chunks).strip()
+        if joined:
+            return joined
+    except Exception:
+        pass
+
+    # Fallback parser for very simple PDFs used in tests.
     raw = file_bytes.decode("latin1", errors="ignore")
     streams = re.findall(r"stream\\r?\\n(.*?)\\r?\\nendstream", raw, flags=re.S)
     search_space = "\n".join(streams) if streams else raw
