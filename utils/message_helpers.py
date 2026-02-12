@@ -144,7 +144,6 @@ async def process_ollama_with_progress(
 
     # Пути к ресурсам
     gif_path = Path("data/animated_magic_ball.gif")
-    ball_path = Path("data/magic_ball.png")
 
     # Определяем предполагаемое время ответа и настраиваем прогресс-бар
     from utils.ollama import choose_model
@@ -156,32 +155,59 @@ async def process_ollama_with_progress(
     total_steps = 20
     step_delay = max(0.5, estimated / total_steps)
 
-    # Отправляем анимированный GIF
-    try:
-        gif_message = await bot.send_animation(
-            chat_id=chat_id,
-            animation=FSInputFile(gif_path),
-            caption=MSG_QUERYING_UNIVERSE
-        )
-    except Exception:
-        # fallback, если не удалось отправить gif
-        gif_message = await bot.send_message(chat_id=chat_id, text=MSG_QUERYING_UNIVERSE)
-
-    # Создаём событие для остановки прогресса
-    stop_event = asyncio.Event()
-
-    # Запускаем прогресс-бар поверх gif
+    # Сначала быстро показываем прогресс, чтобы пользователь видел старт сразу.
     progress_msg = await bot.send_message(chat_id=chat_id, text="[                    ] 0% 🔮")
+    stop_event = asyncio.Event()
     progress_task = asyncio.create_task(
         show_progress_bar(bot, chat_id, progress_msg.message_id, stop_event, total_steps=total_steps, step_delay=step_delay)
     )
 
+    # Отправку GIF/текста делаем в фоне, чтобы она не блокировала старт прогресса.
+    async def _send_querying_message():
+        try:
+            return await asyncio.wait_for(
+                bot.send_animation(
+                    chat_id=chat_id,
+                    animation=FSInputFile(gif_path),
+                    caption=MSG_QUERYING_UNIVERSE
+                ),
+                timeout=2.5
+            )
+        except Exception:
+            try:
+                return await bot.send_message(chat_id=chat_id, text=MSG_QUERYING_UNIVERSE)
+            except Exception:
+                return None
+
+    querying_task = asyncio.create_task(_send_querying_message())
+    querying_msg = None
+
     try:
         response = await ollama_call(*args, **kwargs)
     finally:
+        if querying_task.done():
+            try:
+                querying_msg = querying_task.result()
+            except Exception:
+                querying_msg = None
+        else:
+            querying_task.cancel()
+            try:
+                await querying_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass
+
         stop_event.set()
         await asyncio.sleep(0.2)
         progress_task.cancel()
+        try:
+            await progress_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
 
         # Удаляем прогресс-бар и gif
         try:
@@ -189,9 +215,10 @@ async def process_ollama_with_progress(
         except Exception:
             pass
 
-        try:
-            await bot.delete_message(chat_id=chat_id, message_id=gif_message.message_id)
-        except Exception:
-            pass
+        if querying_msg:
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=querying_msg.message_id)
+            except Exception:
+                pass
 
     return response

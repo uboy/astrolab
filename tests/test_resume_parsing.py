@@ -126,6 +126,8 @@ def test_parse_resume_text_edge_cases(filename):
         assert "@" in email
     if filename == "resume_date_ranges.md":
         assert data.get("experience_years") is not None or data.get("experience_range") is not None
+        companies = data.get("companies") or []
+        assert "Company A" in companies or "Company B" in companies
 
 
 def test_merge_candidate_profile_prioritizes_user_input():
@@ -159,6 +161,39 @@ def test_parse_resume_text_extracts_core_profile_fields():
     assert data.get("location") == "Москва"
 
 
+def test_parse_resume_text_extracts_birthdate_and_age():
+    text = (
+        "Denis Mazur\n"
+        "Birth date: 25.12.1986\n"
+        "Experience: 12 years\n"
+        "Skills: Python, Leadership\n"
+    )
+    data = resume_parser.parse_resume_text(text)
+    assert data.get("birthdate") == "25.12.1986"
+    assert isinstance(data.get("age"), int)
+    assert data.get("age") >= 18
+
+
+def test_parse_resume_text_birthdate_does_not_use_experience_dates():
+    text = (
+        "Иван Петров\n"
+        "Опыт: 01.09.2019 - 01.10.2023\n"
+        "Навыки: Python, SQL\n"
+    )
+    data = resume_parser.parse_resume_text(text)
+    assert data.get("birthdate") is None
+
+
+def test_parse_resume_text_birthdate_supports_us_labelled_format():
+    text = (
+        "Denis Mazur\n"
+        "Date of birth: 12/25/1986\n"
+        "Skills: Python\n"
+    )
+    data = resume_parser.parse_resume_text(text)
+    assert data.get("birthdate") == "25.12.1986"
+
+
 def test_humorous_response_contains_summary_details():
     profile = {
         "first_name": "Иван",
@@ -170,3 +205,51 @@ def test_humorous_response_contains_summary_details():
     assert "Иван Петров" in response
     assert "опыт: 4.5" in response
     assert "Скор: 72/100" in response
+    assert "Детали:" in response
+    assert "Мистический слой" in response
+    assert "Таро-расклад" in response
+
+
+def test_score_compatibility_includes_mystic_signals():
+    profile = {
+        "first_name": "Denis",
+        "last_name": "Mazur",
+        "birthdate": "25.12.1986",
+        "experience_years": 12.0,
+        "skills": ["Python", "Management"],
+    }
+    params = {
+        "min_experience_years": 2,
+        "cosmic_element": "earth",
+        "company_destiny_number": 7,
+    }
+    score, reasons = candidate_compat.score_compatibility(profile, params)
+    assert score >= 70
+    assert any("астролог" in reason.lower() for reason in reasons)
+
+
+def test_mystic_insights_contains_extended_astrology_tools():
+    profile = {
+        "first_name": "Denis",
+        "last_name": "Mazur",
+        "birthdate": "25.12.1986",
+    }
+    insights = candidate_compat.get_mystic_insights(profile, {"company_destiny_number": 7})
+    details = "\n".join(insights.get("details") or [])
+    assert "китайский знак" in details.lower()
+    assert "лунная фаза" in details.lower()
+    assert "биоритмы" in details.lower()
+
+
+def test_parse_name_does_not_use_top_skills_as_full_name():
+    text = (
+        "RESUME\n"
+        "Top Skills\n"
+        "Python\n"
+        "SQL\n"
+        "Denis Mazur\n"
+        "Experience: 10 years\n"
+    )
+    data = resume_parser.parse_resume_text(text)
+    assert data.get("first_name") == "Denis"
+    assert data.get("last_name") == "Mazur"

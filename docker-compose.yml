@@ -4,9 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        BOT_VERSION: ${BOT_VERSION:-unknown}
+        BOT_VERSION: ${BOT_VERSION:-}
     env_file:
       - .env
+    environment:
+      BOT_VERSION: ${BOT_VERSION:-}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

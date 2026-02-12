@@ -52,6 +52,24 @@ ADMINS=123456789,987654321
 4) Запустите Ollama/модель, затем `python main.py`.
 
 ## Запуск в Docker
+Перед сборкой можно явно задать SHA коммита в `BOT_VERSION`:
+PowerShell:
+```powershell
+$env:BOT_VERSION = (git rev-parse HEAD)
+docker compose build bot
+docker compose up -d bot
+```
+
+CMD/bash:
+```bash
+export BOT_VERSION=$(git rev-parse HEAD)
+docker compose build bot
+docker compose up -d bot
+```
+
+Если `BOT_VERSION` не задан, контейнер попытается определить версию из `.git` (поэтому требуется пересборка образа после обновлений).
+
+Альтернатива без compose:
 ```
 docker build --build-arg BOT_VERSION=$(git rev-parse HEAD) -t ai-chat-bot .
 docker run --env-file .env -v %cd%\data:/app/data ai-chat-bot

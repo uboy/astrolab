@@ -8,13 +8,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def get_bot_version(short: bool = True) -> str:
+    env_version = os.getenv("BOT_VERSION", "").strip()
+    if env_version and env_version.lower() != "unknown":
+        return env_version[:8] if short else env_version
+
     git_version = get_git_sha()
     if git_version != "unknown":
         return git_version[:8] if short else git_version
-
-    env_version = os.getenv("BOT_VERSION", "").strip()
-    if env_version:
-        return env_version[:8] if short else env_version
 
     return "unknown"
 
