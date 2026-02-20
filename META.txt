@@ -1,0 +1,5 @@
+step: 01
+date: 2025-11-12
+member: dev_mazur
+commit: b298d3f
+subject: first version
