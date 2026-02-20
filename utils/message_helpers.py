@@ -2,12 +2,13 @@
 Утилиты для форматирования и отправки сообщений
 """
 
-from aiogram.types import Message, ReplyKeyboardMarkup
+from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram import Bot
-from utils.constants import MSG_RESPONSE_WITH_BALANCE, MSG_QUERYING_UNIVERSE
+from utils.constants import MSG_RESPONSE_WITH_BALANCE
 from utils.user_helpers import format_balance
 import asyncio
+from aiogram.types import FSInputFile
 
 
 async def send_typing_action(bot: Bot, chat_id: int) -> None:
@@ -71,16 +72,16 @@ def format_response_with_balance(response: str, user: dict) -> str:
 
 
 async def show_progress_bar(
-    bot: Bot,
-    chat_id: int,
-    message_id: int,
-    stop_event: asyncio.Event,
-    total_steps: int = 20,
-    step_delay: float = 1
+        bot: Bot,
+        chat_id: int,
+        message_id: int,
+        stop_event: asyncio.Event,
+        total_steps: int = 20,
+        step_delay: float = 1
 ) -> None:
     """
-    Показать анимацию прогресс-бара (зацикленную)
-    
+    Показать анимацию прогресс-бара с фиксированной шириной и иконкой "магического шара".
+
     Args:
         bot: Экземпляр бота
         chat_id: ID чата
@@ -90,17 +91,21 @@ async def show_progress_bar(
         step_delay: Задержка между шагами в секундах
     """
     try:
+        bar_width = total_steps  # постоянная длина
+        ball_emoji = "🔮"  # запасной вариант, если PNG не отобразится корректно
+
         while not stop_event.is_set():
             for i in range(1, total_steps + 1):
-                # Проверяем, не нужно ли остановить анимацию
                 if stop_event.is_set():
                     return
-                
+
                 progress = min(i * (100 // total_steps), 100)
                 filled = i
-                empty = total_steps - i
-                bar = "[" + "█" * filled + " " * empty + f"] {progress}%"
-                
+                empty = bar_width - i
+
+                # Формируем бар с фиксированной шириной
+                bar = "[" + "█" * filled + " " * empty + f"] {progress}% {ball_emoji}"
+
                 try:
                     await bot.edit_message_text(
                         chat_id=chat_id,
@@ -108,72 +113,79 @@ async def show_progress_bar(
                         text=bar
                     )
                 except Exception:
-                    # Игнорируем ошибки редактирования (например, сообщение уже удалено)
                     return
-                
-                # Ждем перед следующим шагом
+
                 await asyncio.sleep(step_delay)
-                
-                # Проверяем еще раз после задержки
                 if stop_event.is_set():
                     return
     except Exception:
-        # Игнорируем все ошибки в анимации
         pass
 
 
 async def process_ollama_with_progress(
-    bot: Bot,
-    chat_id: int,
-    ollama_call,
-    *args,
-    **kwargs
+        bot: Bot,
+        chat_id: int,
+        ollama_call,
+        *args,
+        **kwargs
 ) -> str:
     """
-    Выполнить запрос к Ollama с показом прогресс-бара
-    
+    Выполнить запрос к Ollama с показом прогресс-бара и магическим шаром.
+
     Args:
         bot: Экземпляр бота
         chat_id: ID чата
         ollama_call: Функция для вызова Ollama (async callable)
         *args: Аргументы для ollama_call
         **kwargs: Ключевые аргументы для ollama_call
-        
+
     Returns:
         Ответ от Ollama
     """
     from utils.constants import MSG_QUERYING_UNIVERSE
-    
-    # Отправляем сообщение о запросе во вселенную
-    progress_msg = await bot.send_message(chat_id=chat_id, text=MSG_QUERYING_UNIVERSE)
-    
-    # Создаем событие для остановки анимации
+    from pathlib import Path
+
+    # Пути к ресурсам
+    gif_path = Path("data/animated_magic_ball.gif")
+    ball_path = Path("data/magic_ball.png")
+
+    # Отправляем анимированный GIF
+    try:
+        gif_message = await bot.send_animation(
+            chat_id=chat_id,
+            animation=FSInputFile(gif_path),
+            caption=MSG_QUERYING_UNIVERSE
+        )
+    except Exception:
+        # fallback, если не удалось отправить gif
+        gif_message = await bot.send_message(chat_id=chat_id, text=MSG_QUERYING_UNIVERSE)
+
+    # Создаём событие для остановки прогресса
     stop_event = asyncio.Event()
-    
-    # Запускаем анимацию прогресс-бара в фоне
+
+    # Запускаем прогресс-бар поверх gif
+    progress_msg = await bot.send_message(chat_id=chat_id, text="[                    ] 0% 🔮")
     progress_task = asyncio.create_task(
         show_progress_bar(bot, chat_id, progress_msg.message_id, stop_event)
     )
-    
+
     try:
-        # Выполняем запрос к Ollama
         response = await ollama_call(*args, **kwargs)
     finally:
-        # Останавливаем анимацию
         stop_event.set()
-        # Даем время анимации завершиться
-        try:
-            await asyncio.sleep(0.2)
-            progress_task.cancel()
-        except Exception:
-            pass
-        
-        # Удаляем сообщение с прогресс-баром
+        await asyncio.sleep(0.2)
+        progress_task.cancel()
+
+        # Удаляем прогресс-бар и gif
         try:
             await bot.delete_message(chat_id=chat_id, message_id=progress_msg.message_id)
         except Exception:
-            # Игнорируем ошибки удаления (например, сообщение уже удалено)
             pass
-    
+
+        try:
+            await bot.delete_message(chat_id=chat_id, message_id=gif_message.message_id)
+        except Exception:
+            pass
+
     return response
 

@@ -59,25 +59,26 @@ async def check_user_limit(user_id: int) -> Tuple[Dict[str, Any], bool]:
     """
     user = await get_user(user_id)
     has_limit = user["free_count"] + user["paid_count"] > 0
+
     return user, has_limit
 
 
-async def decrement_user_limit(user_id: int) -> Dict[str, Any]:
+async def decrement_user_limit(user_id: int, price: int = 1) -> Dict[str, Any]:
     """
     Уменьшить лимит пользователя на 1 (сначала бесплатные, потом платные)
     
     Args:
         user_id: ID пользователя
-        
+        price: цена услуги
     Returns:
         Обновленные данные пользователя
     """
     user = await get_user(user_id)
     
     if user["free_count"] > 0:
-        user["free_count"] -= 1
+        user["free_count"] -= price
     elif user["paid_count"] > 0:
-        user["paid_count"] -= 1
+        user["paid_count"] -= price
     
     user["history"].append(datetime.now().isoformat())
     user["state"] = None

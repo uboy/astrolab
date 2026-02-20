@@ -10,10 +10,12 @@ from utils.curses_data import CURSES, RITUALS
 from utils.constants import (
     BTN_CURSE_DETECTION, BTN_BACK, BTN_YES, BTN_NO,
     MSG_CURSE_DETECTION_RESULT, MSG_CURSE_RITUAL, MSG_CURSE_REMAINS,
-    MSG_RETURNED_TO_MENU, MSG_INVALID_DECISION
+    MSG_RETURNED_TO_MENU, MSG_INVALID_DECISION, MSG_NO_FREE_PAID
 )
-from keyboards.menus import main_menu
+from keyboards.menus import main_menu, payment_menu
 import random
+from handlers.base import PaymentStates
+from utils.user_helpers import check_user_limit
 
 router = Router()
 
@@ -26,6 +28,13 @@ class CurseDetectionStates(StatesGroup):
 # -----------------------------
 @router.message(F.text == BTN_CURSE_DETECTION, StateFilter(None))
 async def start_curse_detection(message: Message, state: FSMContext):
+    user, has_limit = await check_user_limit(message.from_user.id)
+    if not has_limit:
+        await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
+        #await state.clear()
+        await state.set_state(PaymentStates.choosing_amount)
+        return
+
     # Случайно выбираем проклятие
     selected_curse = random.choice(CURSES)
     
@@ -70,7 +79,7 @@ async def handle_curse_decision(message: Message, state: FSMContext):
         
         await message.answer(
             MSG_CURSE_RITUAL.format(ritual=selected_ritual),
-            reply_markup=main_menu
+            reply_markup=main_menu, parse_mode='HTML'
         )
         await state.clear()
         return

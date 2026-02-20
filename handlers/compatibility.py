@@ -10,6 +10,7 @@ from utils.constants import (
 from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import main_menu, payment_menu
+from handlers.base import PaymentStates
 
 router = Router()
 
@@ -35,7 +36,8 @@ async def get_names(message: Message, state: FSMContext, bot: Bot):
     user, has_limit = await check_user_limit(message.from_user.id)
     if not has_limit:
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
-        await state.clear()
+        #await state.clear()
+        await state.set_state(PaymentStates.choosing_amount)
         return
 
     await state.set_state(CompatibilityStates.waiting_ollama_response)
@@ -65,6 +67,6 @@ async def get_names(message: Message, state: FSMContext, bot: Bot):
     # Отправка ответа
     await message.answer(
         format_response_with_balance(response, user),
-        reply_markup=main_menu
+        reply_markup=main_menu, parse_mode='HTML'
     )
     await state.clear()

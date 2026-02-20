@@ -28,9 +28,16 @@ BTN_PAYMENT_AMOUNT_5 = "5"
 BTN_PAYMENT_AMOUNT_10 = "10"
 BTN_PAYMENT_AMOUNT_15 = "15"
 BTN_PAYMENT_AMOUNT_20 = "20"
-BTN_PAYMENT_METHOD_PIGEONS = "Голуби почтой 🕊️"
+BTN_PAYMENT_METHOD_PIGEONS = "Голубиной почтой 🕊️"
 BTN_PAYMENT_METHOD_FINGER = "Палец к камере ✋📸"
 BTN_PAYMENT_METHOD_COINS = "Монетки в портал 🪙✨"
+
+# Цена услуги
+PRICE_HOROSCOPE = 1
+PRICE_COMPATIBILITY = 1
+PRICE_NUMEROLOGY = 1
+PRICE_PHOTO_DESTINY = 1
+PRICE_CURSE_REMOVAL = 1
 
 # Списки для проверки
 MAIN_MENU_BUTTONS = {
@@ -113,7 +120,7 @@ MSG_OVERAGE = "🎉 Ого! Вы вечно молоды душой — вы з�
 # Приветствия и запросы
 MSG_HOROSCOPE_GREETING = "🧙‍♀️ Привет, {name}! Введите дату рождения в формате ДД.MM.ГГГГ, и я приоткрою тайны вашей судьбы… ✨"
 MSG_COMPATIBILITY_GREETING = "💞 Привет, {name}! Введите два имени через запятую для анализа совместимости:\nНапример: Анна, Денис"
-MSG_NUMEROLOGY_GREETING = "🔢 Привет, {name}! Для нумерологического анализа мне нужна дата рождения в формате ДД.MM.ГГГГ.\n\nИспользовать имя из профиля ({profile_name}) или ввести своё?"
+MSG_NUMEROLOGY_GREETING = "🔢 Привет, {name}! Для нумерологического анализа мне нужна дата рождения в формате ДД.MM.ГГГГ.\n\nИспользовать имя из профиля ({profile_name}) иначе можешь ввести своё?"
 MSG_NUMEROLOGY_ASK_NAME = "📝 Введите ваше имя для нумерологического анализа:"
 MSG_NUMEROLOGY_ASK_BIRTHDATE = "📅 Введите дату рождения в формате ДД.MM.ГГГГ:"
 MSG_PHOTO_DESTINY_GREETING = "📸 Привет, {name}! Загрузите фотографию, и я расскажу о вашей судьбе по фото! ✨"
@@ -137,7 +144,7 @@ MSG_CURSE_REMAINS = "😔 Проклятие останется на вас до
 MSG_ABOUT_COMPANY = (
     "🔮 Наша компания специализируется на гадании и астрологии. "
     "Мы используем проверенные методы магии, астрологические прогнозы и индивидуальный подход к каждому клиенту.\n\n"
-    "🌐 Наш сайт: https://example-astrology.com\n\n"
+    "🌐 Наш сайт: http://magic-ball.duckdns.org/\n\n"
     "Мы рады помочь вам с личными, семейными и профессиональными вопросами!"
 )
 
