@@ -76,8 +76,8 @@ async def show_progress_bar(
         chat_id: int,
         message_id: int,
         stop_event: asyncio.Event,
-        total_steps: int = 20,
-        step_delay: float = 1
+        total_steps: int = 25,
+        step_delay: float = 1.25
 ) -> None:
     """
     Показать анимацию прогресс-бара с фиксированной шириной и иконкой "магического шара".
@@ -164,7 +164,7 @@ async def process_ollama_with_progress(
     stop_event = asyncio.Event()
 
     # Запускаем прогресс-бар поверх gif
-    progress_msg = await bot.send_message(chat_id=chat_id, text="[                    ] 0% 🔮")
+    progress_msg = await bot.send_message(chat_id=chat_id, text="[                                ] 0% 🔮")
     progress_task = asyncio.create_task(
         show_progress_bar(bot, chat_id, progress_msg.message_id, stop_event)
     )

@@ -2,7 +2,10 @@ import httpx
 import json
 from utils.config import settings
 import re
+from utils.logging_config import get_logger
 
+
+logger = get_logger(__name__)
 MAX_TELEGRAM_LENGTH = 4000
 
 async def ask_ollama(prompt: str, apply_formatting: bool = True) -> str:
@@ -19,6 +22,7 @@ async def ask_ollama(prompt: str, apply_formatting: bool = True) -> str:
     url = f"{settings.OLLAMA_URL}"
     model = settings.OLLAMA_MODEL
     payload = {"model": model, "prompt": prompt}
+    logger.debug(f"Отправка запроса к Ollama. Длина промпта: {len(prompt)}")
 
     try:
         async with httpx.AsyncClient(timeout=45) as client:
@@ -56,6 +60,7 @@ async def ask_ollama(prompt: str, apply_formatting: bool = True) -> str:
             return out
 
     except Exception as e:
+        logger.error(f"Ошибка при запросе к Ollama: {e}", exc_info=True)
         return f"✨ Ошибка при запросе к Ollama: {e}"
 
 
@@ -81,7 +86,7 @@ async def ask_ollama_with_image(prompt: str, image_base64: str, apply_formatting
         # Если URL не содержит endpoint, добавляем /api/chat
         url = base_url.rstrip("/") + "/api/chat"
     
-    model = settings.OLLAMA_MODEL
+    model = "qwen3-vl:32b" #settings.OLLAMA_MODEL
     
     # Формируем сообщения для vision model (формат /api/chat)
     messages = [
