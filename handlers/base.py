@@ -120,7 +120,7 @@ async def choose_method(message: Message, state: FSMContext, bot: Bot):
 # -----------------------------
 @router.message(F.text == BTN_ABOUT)
 async def about_company(message: Message):
-    await message.answer(MSG_ABOUT_COMPANY, reply_markup=main_menu)
+    await message.answer(MSG_ABOUT_COMPANY, reply_markup=main_menu, parse_mode='HTML')
 
 
 # -----------------------------

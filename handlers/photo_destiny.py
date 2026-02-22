@@ -73,9 +73,9 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
         )
         
         # Используем функцию с прогресс-баром
-        from utils.ollama import ask_ollama_with_image
+        from utils.ollama import ask_ollama
         response = await process_ollama_with_progress(
-            bot, message.chat.id, ask_ollama_with_image, prompt, image_base64
+            bot, message.chat.id, ask_ollama, prompt, images=[image_base64]
         )
         
         if not response.strip():
