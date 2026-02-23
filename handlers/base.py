@@ -14,7 +14,7 @@ from utils.constants import (
     MSG_ABOUT_COMPANY, MSG_FALLBACK_GREETING,
     ALL_MENU_BUTTONS, DEFAULT_USER_NAME, DEFAULT_USER_NAME_LOWER
 )
-from utils.user_helpers import get_user_name, get_user, save_user
+from utils.user_helpers import get_user_name, get_user, save_user, log_user_action
 from utils.message_helpers import return_to_main_menu
 from keyboards.menus import main_menu, payment_type_menu
 import asyncio
@@ -33,6 +33,7 @@ class PaymentStates(StatesGroup):
 @router.message(F.text == BTN_PAYMENT, StateFilter(None))
 async def payment_start(message: Message, state: FSMContext):
     await state.clear()
+    await get_user(message.from_user.id, message.from_user)
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=BTN_PAYMENT_AMOUNT_5), KeyboardButton(text=BTN_PAYMENT_AMOUNT_10)],
@@ -85,7 +86,7 @@ async def choose_method(message: Message, state: FSMContext, bot: Bot):
     amount = data.get("amount", 0)
     user_id = str(message.from_user.id)
 
-    user = await get_user(message.from_user.id)
+    user = await get_user(message.from_user.id, message.from_user)
 
     try:
         await bot.send_chat_action(chat_id=message.chat.id, action="typing")
@@ -106,6 +107,12 @@ async def choose_method(message: Message, state: FSMContext, bot: Bot):
     # Успех
     user["paid_count"] += amount
     await save_user(message.from_user.id, user)
+    await log_user_action(
+        message.from_user.id,
+        feature="payment",
+        details={"amount": amount, "method": message.text},
+        telegram_user=message.from_user,
+    )
 
     balance = f"📊 Бесплатные: {user['free_count']}, 💎 Оплаченные: {user['paid_count']}"
     await message.answer(

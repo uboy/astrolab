@@ -65,18 +65,42 @@ async def show_stats(message: Message):
     for uid, u in users.items():
         lines.append(
             f"ID: {uid}, Free: {u['free_count']}, Paid: {u['paid_count']}, "
-            f"История: {len(u['history'])} обращений"
+            f"История: {len(u.get('history', []))} обращений, "
+            f"Действия: {len(u.get('actions', []))}, "
+            f"Первое появление: {u.get('first_seen', '-')}, "
+            f"Последняя активность: {u.get('last_seen', '-')}"
         )
-    stats_text = "\n".join(lines)
+
+    # Делим ответ на части, чтобы не превышать лимит Telegram
+    chunks = []
+    current_chunk = []
+    current_len = 0
+    max_len = 3500  # запас относительно лимита 4096
+
+    for line in lines:
+        line_len = len(line) + 1  # с учётом переноса строки
+        if current_len + line_len > max_len and current_chunk:
+            chunks.append("\n".join(current_chunk))
+            current_chunk = [line]
+            current_len = line_len
+        else:
+            current_chunk.append(line)
+            current_len += line_len
+
+    if current_chunk:
+        chunks.append("\n".join(current_chunk))
 
     keyboard = ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text=BTN_ADMIN), KeyboardButton(text=BTN_CANCEL)]],
         resize_keyboard=True
     )
-    await message.answer(
-        MSG_USER_STATS_HEADER.format(stats=stats_text),
-        reply_markup=keyboard
-    )
+
+    for idx, chunk in enumerate(chunks):
+        is_last = idx == len(chunks) - 1
+        await message.answer(
+            MSG_USER_STATS_HEADER.format(stats=chunk),
+            reply_markup=keyboard if is_last else ReplyKeyboardRemove()
+        )
 
 
 # -----------------------------

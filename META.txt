@@ -1,5 +1,5 @@
-step: 04
-date: 2025-11-18
+step: 05
+date: 2025-12-16
 member: dev_sankov
-commit: dc2869b
-subject: add logging and add VL model for images
+commit: 060702f
+subject: Add Docker setup, enrich user logging, and document bot features

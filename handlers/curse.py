@@ -11,7 +11,7 @@ from utils.constants import (
     MSG_NO_FREE_PAID, MSG_OLLAMA_CURSE_ERROR, MSG_RETURNED_TO_MENU,
     DEFAULT_USER_NAME
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name
+from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import main_menu, payment_menu
 from handlers.base import PaymentStates
@@ -54,6 +54,7 @@ CURSES = [
 # -----------------------------
 @router.message(F.text == BTN_CURSE_REMOVAL, StateFilter(None))
 async def start_curse(message: Message, state: FSMContext):
+    await get_user(message.from_user.id, message.from_user)
     # Создаем кнопки в 2 колонки
     keyboard_rows = []
     for i in range(0, len(CURSES), 2):
@@ -102,7 +103,7 @@ async def choose_curse(message: Message, state: FSMContext, bot: Bot):
 async def process_ollama_curse(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     curse_text = data.get("curse_phrase", "")
-    user, has_limit = await check_user_limit(message.from_user.id)
+    user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
 
     if not has_limit:
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
@@ -128,7 +129,12 @@ async def process_ollama_curse(message: Message, state: FSMContext, bot: Bot):
         response = MSG_OLLAMA_CURSE_ERROR
 
     # Списание лимита
-    user = await decrement_user_limit(message.from_user.id)
+    user = await decrement_user_limit(
+        message.from_user.id,
+        feature="curse_removal",
+        details={"curse_phrase": curse_text},
+        telegram_user=message.from_user,
+    )
 
     # Отправка ответа
     await message.answer(
