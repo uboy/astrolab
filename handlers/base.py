@@ -4,9 +4,10 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import StateFilter
 from utils.constants import (
-    BTN_PAYMENT, BTN_ABOUT, BTN_CANCEL, BTN_HOROSCOPE, BTN_COMPATIBILITY, BTN_NUMEROLOGY, BTN_PHOTO_DESTINY, BTN_CURSE_REMOVAL, BTN_CURSE_DETECTION,
+    BTN_PAYMENT, BTN_ABOUT, BTN_CANCEL, BTN_HOROSCOPE, BTN_COMPATIBILITY, BTN_NUMEROLOGY, BTN_PHOTO_DESTINY, BTN_ZODIAC_QUIZ, BTN_LUCK_RESET,
     BTN_PAYMENT_AMOUNT_5, BTN_PAYMENT_AMOUNT_10, BTN_PAYMENT_AMOUNT_15, BTN_PAYMENT_AMOUNT_20,
     BTN_PAYMENT_METHOD_PIGEONS, BTN_PAYMENT_METHOD_FINGER, BTN_PAYMENT_METHOD_COINS,
+    BTN_SUBSCRIBE,
     PAYMENT_AMOUNTS, PAYMENT_METHODS,
     MSG_PAYMENT_GREETING, MSG_PAYMENT_CANCELLED, MSG_RETURNING_TO_MENU,
     MSG_INVALID_AMOUNT, MSG_INVALID_PAYMENT_METHOD,
@@ -123,6 +124,14 @@ async def choose_method(message: Message, state: FSMContext, bot: Bot):
 
 
 # -----------------------------
+# Глобальная отмена: возвращаем в главное меню из любого состояния
+# -----------------------------
+@router.message(F.text == BTN_CANCEL)
+async def global_cancel(message: Message, state: FSMContext):
+    await return_to_main_menu(message, state, MSG_RETURNING_TO_MENU, remove_keyboard=True)
+
+
+# -----------------------------
 # О компании
 # -----------------------------
 @router.message(F.text == BTN_ABOUT)
@@ -142,7 +151,7 @@ async def fallback(message: Message):
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME_LOWER)
     services = "\n- ".join([
         BTN_HOROSCOPE, BTN_COMPATIBILITY, BTN_NUMEROLOGY, BTN_PHOTO_DESTINY,
-        BTN_CURSE_REMOVAL, BTN_CURSE_DETECTION, BTN_PAYMENT, BTN_ABOUT
+        BTN_ZODIAC_QUIZ, BTN_LUCK_RESET, BTN_PAYMENT, BTN_ABOUT, BTN_SUBSCRIBE
     ])
 
     await message.answer(

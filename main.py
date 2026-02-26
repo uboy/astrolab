@@ -1,14 +1,16 @@
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-from handlers import base, horoscope, compatibility, numerology, photo_destiny, curse, curse_detection, admin
+from handlers import base, horoscope, compatibility, numerology, photo_destiny, curse, curse_detection, admin, subscription
 from utils.config import settings
 import asyncio
+from utils.subscription_scheduler import run_subscription_scheduler
 
 bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
+    scheduler_task = asyncio.create_task(run_subscription_scheduler(bot))
     # Регистрируем роутеры
     dp.include_router(horoscope.router)
     dp.include_router(compatibility.router)
@@ -16,10 +18,14 @@ async def main():
     dp.include_router(photo_destiny.router)
     dp.include_router(curse.router)
     dp.include_router(curse_detection.router)
+    dp.include_router(subscription.router)
     dp.include_router(admin.router)
     dp.include_router(base.router)
     print("🚀 Бот запущен!")
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        scheduler_task.cancel()
 
 if __name__ == "__main__":
     try:

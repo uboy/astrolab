@@ -1,5 +1,5 @@
-step: 05
+step: 06
 date: 2025-12-16
 member: dev_sankov
-commit: 060702f
-subject: Add Docker setup, enrich user logging, and document bot features
+commit: 5103f30
+subject: Add zodiac-based flows, compatibility photos, subscriptions, and admin controls

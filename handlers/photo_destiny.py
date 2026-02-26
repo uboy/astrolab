@@ -1,15 +1,15 @@
 from aiogram import Router, F, Bot
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import StateFilter
 from utils.constants import (
     BTN_PHOTO_DESTINY, MSG_PHOTO_DESTINY_GREETING, MSG_PHOTO_INVALID,
-    MSG_NO_FREE_PAID, MSG_OLLAMA_PHOTO_ERROR, DEFAULT_USER_NAME
+    MSG_NO_FREE_PAID, MSG_OLLAMA_PHOTO_ERROR, DEFAULT_USER_NAME, BTN_CANCEL
 )
 from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
-from keyboards.menus import main_menu, payment_menu
+from keyboards.menus import main_menu, payment_menu, cancel_menu
 import base64
 from handlers.base import PaymentStates
 
@@ -26,7 +26,7 @@ async def start_photo_destiny(message: Message, state: FSMContext):
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
     await message.answer(
         MSG_PHOTO_DESTINY_GREETING.format(name=user_name),
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=cancel_menu
     )
     await state.set_state(PhotoDestinyStates.waiting_photo)
 
@@ -103,6 +103,12 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
             reply_markup=main_menu
         )
         await state.clear()
+
+
+@router.message(PhotoDestinyStates.waiting_photo, F.text == BTN_CANCEL)
+async def cancel_photo(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("Отменено. Возвращаю в меню.", reply_markup=main_menu)
 
 
 @router.message(PhotoDestinyStates.waiting_photo)

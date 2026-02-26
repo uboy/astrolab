@@ -7,8 +7,8 @@ BTN_HOROSCOPE = "Гороскоп"
 BTN_COMPATIBILITY = "Совместимость"
 BTN_NUMEROLOGY = "Нумерология"
 BTN_PHOTO_DESTINY = "Судьба по фото"
-BTN_CURSE_REMOVAL = "Снятие порчи"
-BTN_CURSE_DETECTION = "Определение проклятия"
+BTN_ZODIAC_QUIZ = "Угадай мой знак"
+BTN_LUCK_RESET = "Перезапуск удачи"
 BTN_PAYMENT = "Оплата"
 BTN_ABOUT = "О компании"
 
@@ -22,6 +22,8 @@ BTN_NO = "Нет"
 BTN_ADMIN = "Админка"
 BTN_USER_STATS = "Статистика пользователей"
 BTN_RESET_LIMITS = "Сброс лимитов"
+BTN_ADMIN_UNSUB = "Админ: отписать пользователя"
+BTN_ADMIN_SET_TIME = "Админ: время рассылки"
 
 # Кнопки оплаты
 BTN_PAYMENT_AMOUNT_5 = "5"
@@ -31,6 +33,9 @@ BTN_PAYMENT_AMOUNT_20 = "20"
 BTN_PAYMENT_METHOD_PIGEONS = "Голубиной почтой 🕊️"
 BTN_PAYMENT_METHOD_FINGER = "Палец к камере ✋📸"
 BTN_PAYMENT_METHOD_COINS = "Монетки в портал 🪙✨"
+BTN_SUBSCRIBE = "Подписка на гороскоп"
+BTN_UNSUBSCRIBE = "Отписаться от рассылки"
+BTN_DONE = "Готово"
 
 # Цена услуги
 PRICE_HOROSCOPE = 1
@@ -45,10 +50,11 @@ MAIN_MENU_BUTTONS = {
     BTN_COMPATIBILITY,
     BTN_NUMEROLOGY,
     BTN_PHOTO_DESTINY,
-    BTN_CURSE_REMOVAL,
-    BTN_CURSE_DETECTION,
+    BTN_ZODIAC_QUIZ,
+    BTN_LUCK_RESET,
     BTN_PAYMENT,
     BTN_ABOUT,
+    BTN_SUBSCRIBE,
 }
 
 PAYMENT_AMOUNTS = {BTN_PAYMENT_AMOUNT_5, BTN_PAYMENT_AMOUNT_10, BTN_PAYMENT_AMOUNT_15, BTN_PAYMENT_AMOUNT_20}
@@ -64,6 +70,8 @@ ADMIN_BUTTONS = {
     BTN_USER_STATS,
     BTN_RESET_LIMITS,
     BTN_CANCEL,
+    BTN_ADMIN_UNSUB,
+    BTN_ADMIN_SET_TIME,
 }
 
 ALL_MENU_BUTTONS = MAIN_MENU_BUTTONS | ADMIN_BUTTONS
@@ -105,6 +113,15 @@ PAYMENT_FAIL_MESSAGES = {
     BTN_PAYMENT_METHOD_COINS: "💨 Портал отказался принимать монетки! Попробуйте другой способ.",
 }
 
+# Подписки
+MSG_SUBSCRIBE_ASK_BIRTHDATE = "📅 Введите дату рождения для ежедневного гороскопа (ДД.MM.ГГГГ):"
+MSG_SUBSCRIBE_OK = "✅ Подписка оформлена! Гороскоп придёт между 12:00 и 15:00 (ваше время по умолчанию: {time})."
+MSG_UNSUB_OK = "❌ Вы отписаны от рассылки ежедневных гороскопов."
+MSG_ALREADY_SUBSCRIBED = "🌞 Вы уже в списке на ежедневные гороскопы. Хотите отписаться?"
+MSG_NOT_SUBSCRIBED = "ℹ️ Вы ещё не подписаны. Хотите подписаться?"
+MSG_SUB_TIME_SET = "⏰ Время рассылки обновлено: {time}. Сообщения приходят только с 12:00 до 15:00."
+MSG_SUB_INVALID_DATE = "❌ Неверный формат даты. Введите в формате ДД.MM.ГГГГ."
+
 # Ошибки валидации
 MSG_INVALID_DATE_FORMAT = "❌ Неверный формат. Введите дату в формате ДД.MM.ГГГГ."
 MSG_INVALID_NAMES_FORMAT = "❌ Пожалуйста, введите ровно два имени через запятую."
@@ -127,18 +144,28 @@ MSG_PHOTO_DESTINY_GREETING = "📸 Привет, {name}! Загрузите фо
 MSG_PHOTO_INVALID = "❌ Пожалуйста, загрузите фотографию (изображение)."
 MSG_PAYMENT_GREETING = "💳 Привет, {name}! Сколько услуг хотите купить?"
 MSG_FALLBACK_GREETING = "🔮 Привет, {name}! Я магический бот-гадалка ✨\n\nВыберите услугу из меню или напишите команду:\n- {services}"
+MSG_ZODIAC_QUIZ_GREETING = "🧩 Давай угадаем твой знак зодиака! Честно ответь на несколько вопросов."
+MSG_ZODIAC_QUIZ_DONE = "🔮 Спасибо за ответы! Сейчас попробую угадать твой знак..."
+MSG_ZODIAC_QUIZ_ERROR = "🤔 Не смог угадать знак. Попробуй снова позже."
+MSG_LUCK_RESET_GREETING = "🍀 Проверим, где застряла удача, и перезапустим её."
+MSG_COMPATIBILITY_PHOTO_PROMPT = "📸 Отправьте 1–2 фото или введите имена и даты рождения пары. Можно сделать и то, и другое."
+MSG_COMPATIBILITY_COLLECTED = "🧪 Данные получены! Запускаю магический анализ совместимости..."
 
 # Админские сообщения
 MSG_ADMIN_MENU = "🛠️ Админка: выберите действие"
 MSG_NO_USERS = "⚠️ Пользователей ещё нет."
 MSG_LIMITS_RESET = "✅ Лимиты всех пользователей сброшены."
 MSG_USER_STATS_HEADER = "📊 Статистика пользователей:\n{stats}"
+MSG_ADMIN_ASK_USER_ID = "Введите ID пользователя:"
+MSG_ADMIN_UNSUB_OK = "✅ Пользователь {user_id} отписан от рассылки."
+MSG_ADMIN_TIME_OK = "⏰ Время рассылки для {user_id} установлено: {time}."
+MSG_ADMIN_INVALID_TIME = "⚠️ Введите время в формате ЧЧ:ММ (12:00–15:00)."
+MSG_ADMIN_NO_USER = "Пользователь с ID {user_id} не найден."
 
 # Сообщения о проклятиях
-MSG_CURSE_REMOVAL_START = "🧹 Выберите тип порчи из списка или введите свой текст:"
-MSG_CURSE_DETECTION_RESULT = "🔮 Результат диагностики:\n\n{curse}\n\nХотите снять это проклятие?"
-MSG_CURSE_RITUAL = "✨ Отлично! Вот обряд для снятия проклятия:\n\n{ritual}\n\n🔮 Проклятие будет снято после выполнения обряда!"
-MSG_CURSE_REMAINS = "😔 Проклятие останется на вас до снятия.\n\nЕсли передумаете, всегда можете вернуться и снять его!"
+MSG_LUCK_RESET_RESULT = "🍀 Ваша полоса невезения выглядит так:\n\n{curse}\n\nПерезапустим удачу?"
+MSG_LUCK_RESET_RITUAL = "✨ Ритуал перезапуска удачи:\n\n{ritual}\n\n🧲 Притягивайте хорошее — и возвращайтесь, если потребуется ещё заряд."
+MSG_LUCK_RESET_SKIP = "🙂 Хорошо, оставляем всё как есть. Если захочется больше удачи — жмите «Перезапуск удачи»!"
 
 # О компании
 MSG_ABOUT_COMPANY = (
