@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_HOUR: int
     FREE_MESSAGES_COUNT: int
     ADMINS: List[int]
+    LOG_LEVEL: str = "ERROR_WARNING"
 
     model_config = {
         "env_file": ".env",

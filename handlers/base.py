@@ -126,7 +126,8 @@ async def choose_method(message: Message, state: FSMContext, bot: Bot):
 # -----------------------------
 # Глобальная отмена: возвращаем в главное меню из любого состояния
 # -----------------------------
-@router.message(F.text == BTN_CANCEL)
+# Глобальная отмена: только если нет активных состояний
+@router.message(F.text == BTN_CANCEL, StateFilter(None))
 async def global_cancel(message: Message, state: FSMContext):
     await return_to_main_menu(message, state, MSG_RETURNING_TO_MENU, remove_keyboard=True)
 
@@ -148,6 +149,7 @@ async def fallback(message: Message):
     if message.text in ALL_MENU_BUTTONS:
         return  # позволяем другим роутерам поймать
 
+    await get_user(message.from_user.id, message.from_user)
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME_LOWER)
     services = "\n- ".join([
         BTN_HOROSCOPE, BTN_COMPATIBILITY, BTN_NUMEROLOGY, BTN_PHOTO_DESTINY,

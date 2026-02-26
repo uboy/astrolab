@@ -46,14 +46,14 @@ async def return_to_main_menu(
     
     await state.clear()
     
-    if remove_keyboard and text:
-        await message.answer(text, reply_markup=ReplyKeyboardRemove())
-        await asyncio.sleep(0.15)
-    
-    await message.answer(
-        text or MSG_RETURNING_TO_MENU,
-        reply_markup=main_menu
-    )
+    if remove_keyboard:
+        # Отправляем одно сообщение, сразу меняя клавиатуру на главное меню
+        await message.answer(text or MSG_RETURNING_TO_MENU, reply_markup=main_menu)
+    else:
+        await message.answer(
+            text or MSG_RETURNING_TO_MENU,
+            reply_markup=main_menu
+        )
 
 
 def format_response_with_balance(response: str, user: dict) -> str:
@@ -188,4 +188,3 @@ async def process_ollama_with_progress(
             pass
 
     return response
-

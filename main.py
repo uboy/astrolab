@@ -4,11 +4,13 @@ from handlers import base, horoscope, compatibility, numerology, photo_destiny, 
 from utils.config import settings
 import asyncio
 from utils.subscription_scheduler import run_subscription_scheduler
+from utils.logging_config import setup_logging
 
 bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 async def main():
+    setup_logging()
     await bot.delete_webhook(drop_pending_updates=True)
     scheduler_task = asyncio.create_task(run_subscription_scheduler(bot))
     # Регистрируем роутеры

@@ -25,6 +25,7 @@ def _extract_profile(telegram_user: Optional[TgUser]) -> Dict[str, Any]:
         "username": telegram_user.username,
         "language_code": telegram_user.language_code,
         "is_premium": getattr(telegram_user, "is_premium", None),
+        "phone_number": getattr(telegram_user, "phone_number", None),
         "added_to_attachment_menu": getattr(telegram_user, "added_to_attachment_menu", None),
         "can_join_groups": getattr(telegram_user, "can_join_groups", None),
         "can_read_all_group_messages": getattr(telegram_user, "can_read_all_group_messages", None),
