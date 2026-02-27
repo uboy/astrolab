@@ -8,10 +8,11 @@ from utils.constants import (
     MSG_ZODIAC_QUIZ_GREETING, MSG_ZODIAC_QUIZ_DONE, MSG_ZODIAC_QUIZ_ERROR,
     MSG_NO_FREE_PAID, DEFAULT_USER_NAME
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name
+from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import main_menu, payment_menu
 from handlers.base import PaymentStates
+from utils.rate_limit import check_rate_limit
 
 router = Router()
 
@@ -109,6 +110,12 @@ async def handle_quiz_answer(message: Message, state: FSMContext, bot: Bot):
     )
 
     from utils.ollama import ask_ollama
+    allowed, wait_msg = check_rate_limit(user, "zodiac_quiz")
+    if not allowed:
+        await save_user(message.from_user.id, user)
+        await message.answer(wait_msg, reply_markup=main_menu)
+        await state.clear()
+        return
     response = await process_ollama_with_progress(
         bot, message.chat.id, ask_ollama, prompt
     )

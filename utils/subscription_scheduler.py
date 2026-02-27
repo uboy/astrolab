@@ -65,9 +65,6 @@ async def _process_once(bot) -> None:
         send_time = _parse_time(sub.get("time", "13:00"))
         target_dt = datetime.combine(now.date(), send_time)
 
-        if now.time() < time(12, 0) or now.time() > time(15, 0):
-            continue
-
         if sub.get("last_sent") == today_iso:
             continue
 

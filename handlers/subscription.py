@@ -1,5 +1,5 @@
 from aiogram import Router, F
-from aiogram.types import Message, ReplyKeyboardMarkup
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import StateFilter
@@ -22,8 +22,8 @@ class SubscriptionStates(StatesGroup):
 def _unsubscribe_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [BTN_UNSUBSCRIBE],
-            [BTN_CANCEL],
+            [KeyboardButton(text=BTN_UNSUBSCRIBE)],
+            [KeyboardButton(text=BTN_CANCEL)],
         ],
         resize_keyboard=True
     )

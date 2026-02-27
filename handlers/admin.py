@@ -16,7 +16,7 @@ from utils.constants import (
     BTN_ADMIN_USER_INFO, BTN_ADMIN_USER_HISTORY, BTN_ADMIN_USER_RESET,
     BTN_ADMIN_USER_SUBSCRIBE, BTN_ADMIN_USER_UNSUBSCRIBE, BTN_ADMIN_USER_SET_TIME, BTN_ADMIN_USER_DELETE,
     MSG_ADMIN_TIME_OK, MSG_ADMIN_INVALID_TIME, MSG_ADMIN_NO_USER,
-    BTN_YES, BTN_NO
+    BTN_YES, BTN_NO, BTN_ADMIN_SETTINGS, BTN_ADMIN_LOGS
 )
 from keyboards.menus import main_menu
 from utils.user_helpers import save_user
@@ -44,6 +44,7 @@ def is_admin(user_id: int) -> bool:
 def _admin_keyboard(extra_buttons=None):
     rows = [
         [KeyboardButton(text=BTN_ADMIN_USERS), KeyboardButton(text=BTN_ADMIN_BROADCAST)],
+        [KeyboardButton(text=BTN_ADMIN_SETTINGS), KeyboardButton(text=BTN_ADMIN_LOGS)],
         [KeyboardButton(text=BTN_CANCEL)]
     ]
     if extra_buttons:
@@ -158,7 +159,8 @@ async def _send_user_summary(message: Message, user_id: str, user_data: dict, st
     total_paid = _total_paid(user_data)
     await message.answer(
         f"👤 Пользователь {user_id}\n{profile_text}\n"
-        f"Баланс: {balance}, всего куплено: {total_paid}\nИстория: {history_len}, действий: {actions_len}\n"
+        f"Баланс: {balance}, всего куплено: {total_paid}\n"
+        f"Обращений всего: {history_len}, записей действий: {actions_len}\n"
         f"Первое появление: {first_seen}\nПоследняя активность: {last_seen}\n"
         f"Подписка: {sub_status} (время {sub_time}, дата {sub_birth}, последнее {sub_last})",
         reply_markup=_user_action_keyboard(sub.get('active', False))
@@ -230,6 +232,29 @@ async def browse_users(message: Message, state: FSMContext):
     if text == BTN_ADMIN_BROADCAST:
         await state.set_state(AdminStates.waiting_broadcast)
         await message.answer(MSG_ADMIN_BROADCAST_ASK, reply_markup=_admin_keyboard())
+        return
+    if text == BTN_ADMIN_SETTINGS:
+        from utils.config import settings
+        settings_text = (
+            f"⚙️ Настройки бота:\n"
+            f"OLLAMA_URL: {getattr(settings, 'OLLAMA_URL', '-')}\n"
+            f"OLLAMA_MODEL: {getattr(settings, 'OLLAMA_MODEL', '-')}\n"
+            f"RATE_LIMIT_PER_MIN: {getattr(settings, 'RATE_LIMIT_PER_MIN', '-')}\n"
+            f"RATE_LIMIT_PER_HOUR: {getattr(settings, 'RATE_LIMIT_PER_HOUR', '-')}\n"
+            f"FREE_MESSAGES_COUNT: {getattr(settings, 'FREE_MESSAGES_COUNT', '-')}\n"
+            f"ADMINS: {', '.join(map(str, getattr(settings, 'ADMINS', [])))}\n"
+            f"LOG_LEVEL: {getattr(settings, 'LOG_LEVEL', '-')}"
+        )
+        await message.answer(settings_text, reply_markup=_admin_keyboard())
+        return
+    if text == BTN_ADMIN_LOGS:
+        try:
+            with open("logs/error.log", "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            tail = "".join(lines[-100:]) if lines else "Лог пуст."
+        except FileNotFoundError:
+            tail = "Лог-файл ещё не создан."
+        await message.answer(f"Последние строки error.log:\n{tail}", reply_markup=_admin_keyboard())
         return
 
     user_id = _parse_user_button(text)

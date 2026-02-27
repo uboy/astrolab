@@ -11,12 +11,13 @@ from utils.constants import (
     DEFAULT_USER_NAME
 )
 
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user
+from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import main_menu, payment_menu, cancel_menu
 from datetime import datetime, timezone
 from handlers.base import PaymentStates
 from utils.ollama import ask_ollama
+from utils.rate_limit import check_rate_limit
 
 router = Router()
 
@@ -153,6 +154,12 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
         #await state.clear()
         await state.set_state(PaymentStates.choosing_amount)
+        return
+    allowed, wait_msg = check_rate_limit(user, "numerology")
+    if not allowed:
+        await save_user(message.from_user.id, user)
+        await message.answer(wait_msg, reply_markup=main_menu)
+        await state.clear()
         return
 
     await state.set_state(NumerologyStates.waiting_ollama_response)
