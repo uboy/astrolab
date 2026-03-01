@@ -15,11 +15,14 @@ from utils.constants import (
     BTN_ADMIN_USERS, BTN_ADMIN_NEXT_PAGE, BTN_ADMIN_PREV_PAGE, BTN_ADMIN_BACK_USERS,
     BTN_ADMIN_USER_INFO, BTN_ADMIN_USER_HISTORY, BTN_ADMIN_USER_RESET,
     BTN_ADMIN_USER_SUBSCRIBE, BTN_ADMIN_USER_UNSUBSCRIBE, BTN_ADMIN_USER_SET_TIME, BTN_ADMIN_USER_DELETE,
+    BTN_ADMIN_USER_SEND,
     MSG_ADMIN_TIME_OK, MSG_ADMIN_INVALID_TIME, MSG_ADMIN_NO_USER,
-    BTN_YES, BTN_NO, BTN_ADMIN_SETTINGS, BTN_ADMIN_LOGS
+    BTN_YES, BTN_NO, BTN_ADMIN_SETTINGS, BTN_ADMIN_LOGS,
+    BTN_ADMIN_SUBSCRIBED, BTN_ADMIN_SEND_SUBS
 )
 from keyboards.menus import main_menu
 from utils.user_helpers import save_user
+from utils.subscription_scheduler import send_pending_subscriptions
 
 router = Router()
 
@@ -27,11 +30,13 @@ PAGE_SIZE = 5
 
 
 class AdminStates(StatesGroup):
+    home = State()
     browsing_users = State()
     user_actions = State()
     waiting_update_time_user = State()
     waiting_broadcast = State()
     waiting_delete_confirm = State()
+    waiting_user_message = State()
 
 
 # -----------------------------
@@ -43,7 +48,8 @@ def is_admin(user_id: int) -> bool:
 
 def _admin_keyboard(extra_buttons=None):
     rows = [
-        [KeyboardButton(text=BTN_ADMIN_USERS), KeyboardButton(text=BTN_ADMIN_BROADCAST)],
+        [KeyboardButton(text=BTN_ADMIN_USERS), KeyboardButton(text=BTN_ADMIN_SUBSCRIBED)],
+        [KeyboardButton(text=BTN_ADMIN_SEND_SUBS), KeyboardButton(text=BTN_ADMIN_BROADCAST)],
         [KeyboardButton(text=BTN_ADMIN_SETTINGS), KeyboardButton(text=BTN_ADMIN_LOGS)],
         [KeyboardButton(text=BTN_CANCEL)]
     ]
@@ -58,7 +64,8 @@ def _user_action_keyboard(sub_active: bool):
         keyboard=[
             [KeyboardButton(text=BTN_ADMIN_USER_INFO), KeyboardButton(text=BTN_ADMIN_USER_HISTORY)],
             [KeyboardButton(text=BTN_ADMIN_USER_RESET), KeyboardButton(text=sub_button)],
-            [KeyboardButton(text=BTN_ADMIN_USER_SET_TIME), KeyboardButton(text=BTN_ADMIN_USER_DELETE)],
+            [KeyboardButton(text=BTN_ADMIN_USER_SET_TIME), KeyboardButton(text=BTN_ADMIN_USER_SEND)],
+            [KeyboardButton(text=BTN_ADMIN_USER_DELETE)],
             [KeyboardButton(text=BTN_ADMIN_BACK_USERS)]
         ],
         resize_keyboard=True
@@ -82,7 +89,7 @@ def _parse_user_button(text: str) -> str | None:
     return None
 
 
-async def _show_users_page(message: Message, state: FSMContext, page: int = 0):
+async def _show_users_page(message: Message, state: FSMContext, page: int = 0, only_subscribed: bool = False):
     users = await read_json("data/users.json")
     changed = False
     for uid, data in users.items():
@@ -108,6 +115,12 @@ async def _show_users_page(message: Message, state: FSMContext, page: int = 0):
         await message.answer(MSG_NO_USERS, reply_markup=_admin_keyboard())
         return
 
+    if only_subscribed:
+        users = {uid: data for uid, data in users.items() if data.get("subscription", {}).get("active")}
+        if not users:
+            await message.answer("Нет активных подписок.", reply_markup=_admin_keyboard())
+            return
+
     sorted_users = _sorted_users(users)
     total = len(sorted_users)
     max_page = max(0, (total - 1) // PAGE_SIZE)
@@ -131,8 +144,9 @@ async def _show_users_page(message: Message, state: FSMContext, page: int = 0):
     rows.append([KeyboardButton(text=BTN_ADMIN_BROADCAST), KeyboardButton(text=BTN_CANCEL)])
 
     keyboard = ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
-    await state.update_data(user_list=[uid for uid, _ in sorted_users], page=page)
-    await message.answer(f"{MSG_ADMIN_MENU}\nВсего пользователей: {total}\nСтраница {page + 1}/{max_page + 1}", reply_markup=keyboard)
+    await state.update_data(user_list=[uid for uid, _ in sorted_users], page=page, only_subscribed=only_subscribed)
+    title = "Подписчики" if only_subscribed else "Пользователи"
+    await message.answer(f"{title}\nВсего: {total}\nСтраница {page + 1}/{max_page + 1}", reply_markup=keyboard)
 
 
 async def _send_user_summary(message: Message, user_id: str, user_data: dict, state: FSMContext):
@@ -200,8 +214,79 @@ async def admin_menu(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         await message.answer(MSG_NO_ACCESS)
         return
-    await state.set_state(AdminStates.browsing_users)
-    await _show_users_page(message, state, page=0)
+    await state.set_state(AdminStates.home)
+    await message.answer("Админка: выберите раздел.", reply_markup=_admin_keyboard())
+
+
+# -----------------------------
+# Главный экран админки
+# -----------------------------
+@router.message(AdminStates.home)
+async def admin_home(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        await message.answer(MSG_NO_ACCESS)
+        return
+
+    text = message.text.strip()
+    if text == BTN_CANCEL:
+        await state.clear()
+        await message.answer(MSG_ACTION_CANCELLED, reply_markup=ReplyKeyboardRemove())
+        await asyncio.sleep(0.15)
+        await message.answer(MSG_RETURNING_TO_MENU, reply_markup=main_menu)
+        return
+
+    if text == BTN_ADMIN_USERS:
+        await state.set_state(AdminStates.browsing_users)
+        await _show_users_page(message, state, page=0, only_subscribed=False)
+        return
+
+    if text == BTN_ADMIN_SUBSCRIBED:
+        await state.set_state(AdminStates.browsing_users)
+        await _show_users_page(message, state, page=0, only_subscribed=True)
+        return
+
+    if text == BTN_ADMIN_SEND_SUBS:
+        await message.answer("Отправляю подписанный контент всем активным подписчикам...")
+        sent = await send_pending_subscriptions(message.bot, force=True)
+        await message.answer(f"Разослано подписчикам: {sent}", reply_markup=_admin_keyboard())
+        return
+
+    if text == BTN_ADMIN_BROADCAST:
+        await state.set_state(AdminStates.waiting_broadcast)
+        await message.answer(MSG_ADMIN_BROADCAST_ASK, reply_markup=_admin_keyboard())
+        return
+
+    if text == BTN_ADMIN_SETTINGS:
+        from utils.config import settings
+        settings_text = (
+            f"⚙️ Настройки бота:\n"
+            f"OLLAMA_URL: {getattr(settings, 'OLLAMA_URL', '-')}\n"
+            f"OLLAMA_MODEL: {getattr(settings, 'OLLAMA_MODEL', '-')}\n"
+            f"OLLAMA_VISION_MODEL: {getattr(settings, 'OLLAMA_VISION_MODEL', '-')}\n"
+            f"RATE_LIMIT_PER_MIN: {getattr(settings, 'RATE_LIMIT_PER_MIN', '-')}\n"
+            f"RATE_LIMIT_PER_HOUR: {getattr(settings, 'RATE_LIMIT_PER_HOUR', '-')}\n"
+            f"FREE_MESSAGES_COUNT: {getattr(settings, 'FREE_MESSAGES_COUNT', '-')}\n"
+            f"ADMINS: {', '.join(map(str, getattr(settings, 'ADMINS', [])))}\n"
+            f"LOG_LEVEL: {getattr(settings, 'LOG_LEVEL', '-')}"
+        )
+        await message.answer(settings_text, reply_markup=_admin_keyboard())
+        return
+
+    if text == BTN_ADMIN_LOGS:
+        try:
+            with open("logs/error.log", "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            tail = "".join(lines[-100:]) if lines else "Лог пуст."
+        except FileNotFoundError:
+            tail = "Лог-файл ещё не создан."
+        max_chunk = 3500
+        content = f"Последние строки error.log:\n{tail}"
+        for i in range(0, len(content), max_chunk):
+            chunk = content[i:i + max_chunk]
+            await message.answer(chunk, reply_markup=_admin_keyboard() if i + max_chunk >= len(content) else ReplyKeyboardRemove())
+        return
+
+    await message.answer("Выберите раздел кнопкой.", reply_markup=_admin_keyboard())
 
 
 # -----------------------------
@@ -222,16 +307,22 @@ async def browse_users(message: Message, state: FSMContext):
         return
     data = await state.get_data()
     page = data.get("page", 0)
+    only_subscribed = data.get("only_subscribed", False)
 
     if text == BTN_ADMIN_NEXT_PAGE:
-        await _show_users_page(message, state, page + 1)
+        await _show_users_page(message, state, page + 1, only_subscribed=only_subscribed)
         return
     if text == BTN_ADMIN_PREV_PAGE:
-        await _show_users_page(message, state, page - 1)
+        await _show_users_page(message, state, page - 1, only_subscribed=only_subscribed)
         return
     if text == BTN_ADMIN_BROADCAST:
         await state.set_state(AdminStates.waiting_broadcast)
         await message.answer(MSG_ADMIN_BROADCAST_ASK, reply_markup=_admin_keyboard())
+        return
+    if text == BTN_ADMIN_SEND_SUBS:
+        await message.answer("Отправляю подписанный контент всем активным подписчикам...")
+        sent = await send_pending_subscriptions(message.bot, force=True)
+        await message.answer(f"Разослано подписчикам: {sent}", reply_markup=_admin_keyboard())
         return
     if text == BTN_ADMIN_SETTINGS:
         from utils.config import settings
@@ -255,6 +346,14 @@ async def browse_users(message: Message, state: FSMContext):
         except FileNotFoundError:
             tail = "Лог-файл ещё не создан."
         await message.answer(f"Последние строки error.log:\n{tail}", reply_markup=_admin_keyboard())
+        return
+    if text == BTN_ADMIN_USERS:
+        await state.update_data(only_subscribed=False)
+        await _show_users_page(message, state, page=0, only_subscribed=False)
+        return
+    if text == BTN_ADMIN_SUBSCRIBED:
+        await state.update_data(only_subscribed=True)
+        await _show_users_page(message, state, page=0, only_subscribed=True)
         return
 
     user_id = _parse_user_button(text)
@@ -345,6 +444,11 @@ async def user_actions(message: Message, state: FSMContext):
         await message.answer("Введите время ЧЧ:ММ (12:00–15:00) для пользователя.", reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=BTN_CANCEL)]], resize_keyboard=True))
         return
 
+    if text == BTN_ADMIN_USER_SEND:
+        await state.set_state(AdminStates.waiting_user_message)
+        await message.answer("Введите текст для немедленной отправки пользователю.", reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=BTN_CANCEL)]], resize_keyboard=True))
+        return
+
     if text == BTN_ADMIN_USER_DELETE:
         await state.set_state(AdminStates.waiting_delete_confirm)
         await message.answer(f"Удалить пользователя {user_id}? ({BTN_YES}/{BTN_NO})", reply_markup=ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text=BTN_YES), KeyboardButton(text=BTN_NO)]], resize_keyboard=True))
@@ -401,6 +505,36 @@ async def admin_set_time(message: Message, state: FSMContext):
     await write_json("data/users.json", users)
     await state.set_state(AdminStates.user_actions)
     await message.answer(MSG_ADMIN_TIME_OK.format(user_id=user_id, time=normalized_time), reply_markup=_user_action_keyboard(sub.get('active', False)))
+
+
+# -----------------------------
+# Немедленная отправка сообщения выбранному пользователю
+# -----------------------------
+@router.message(AdminStates.waiting_user_message)
+async def admin_send_user_message(message: Message, state: FSMContext, bot: Bot):
+    if message.text.strip().lower() == BTN_CANCEL.lower():
+        await state.set_state(AdminStates.user_actions)
+        data = await state.get_data()
+        user_id = data.get("selected_user")
+        users = await read_json("data/users.json")
+        user = users.get(user_id, {})
+        await _send_user_summary(message, user_id, user, state)
+        return
+
+    data = await state.get_data()
+    user_id = data.get("selected_user")
+    if not user_id:
+        await state.set_state(AdminStates.browsing_users)
+        await _show_users_page(message, state)
+        return
+
+    text = message.text
+    try:
+        await bot.send_message(int(user_id), text)
+        await message.answer(f"Сообщение отправлено пользователю {user_id}.", reply_markup=_user_action_keyboard(True))
+    except Exception:
+        await message.answer(f"Не удалось отправить сообщение пользователю {user_id}.", reply_markup=_user_action_keyboard(True))
+    await state.set_state(AdminStates.user_actions)
 
 
 # -----------------------------

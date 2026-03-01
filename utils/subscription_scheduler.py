@@ -18,7 +18,7 @@ def _parse_time(value: str) -> time:
     except Exception:
         hour, minute = 13, 0
 
-    hour = max(12, min(15, hour))
+    hour = max(12, min(19, hour))
     minute = max(0, min(59, minute))
     return time(hour=hour, minute=minute)
 
@@ -48,14 +48,15 @@ async def _build_horoscope_prompt(user: dict) -> Tuple[str, str]:
     return prompt, title
 
 
-async def _process_once(bot) -> None:
+async def _process_once(bot, force: bool = False) -> int:
     users = await read_json("data/users.json")
     if not users:
-        return
+        return 0
 
     now = datetime.now()
     today_iso = now.date().isoformat()
     changed = False
+    sent = 0
 
     for uid, user in users.items():
         sub = user.get("subscription") or {}
@@ -65,10 +66,10 @@ async def _process_once(bot) -> None:
         send_time = _parse_time(sub.get("time", "13:00"))
         target_dt = datetime.combine(now.date(), send_time)
 
-        if sub.get("last_sent") == today_iso:
+        if sub.get("last_sent") == today_iso and not force:
             continue
 
-        if now >= target_dt:
+        if now >= target_dt or force:
             try:
                 prompt, title = await _build_horoscope_prompt(user)
                 response = await ask_ollama(prompt)
@@ -77,19 +78,34 @@ async def _process_once(bot) -> None:
                 sub["last_sent"] = today_iso
                 user["subscription"] = sub
                 changed = True
+                sent += 1
             except Exception as e:
                 logger.error(f"Ошибка отправки подписки пользователю {uid}: {e}", exc_info=True)
                 continue
 
     if changed:
         await write_json("data/users.json", users)
+    return sent
 
 
 async def run_subscription_scheduler(bot) -> None:
     """Фоновой цикл ежедневных гороскопов."""
+    try:
+        await _process_once(bot, force=False)
+    except Exception as e:
+        logger.error(f"Стартовая отправка подписок не удалась: {e}", exc_info=True)
     while True:
         try:
             await _process_once(bot)
         except Exception as e:
             logger.error(f"Сбой в цикле подписок: {e}", exc_info=True)
         await asyncio.sleep(60)
+
+
+async def send_pending_subscriptions(bot, force: bool = False) -> int:
+    """Отправить подписки немедленно (force=True игнорирует отметку за день). Возвращает количество отправленных."""
+    try:
+        return await _process_once(bot, force=force)
+    except Exception as e:
+        logger.error(f"Ошибка при ручной рассылке подписок: {e}", exc_info=True)
+        return 0
