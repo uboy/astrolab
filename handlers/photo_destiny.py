@@ -9,7 +9,7 @@ from utils.constants import (
 )
 from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
-from keyboards.menus import main_menu, payment_menu, cancel_menu
+from keyboards.menus import menu_for, payment_menu, cancel_menu
 import base64
 from handlers.base import PaymentStates
 from utils.rate_limit import check_rate_limit
@@ -44,7 +44,7 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
     allowed, wait_msg = check_rate_limit(user, "photo_destiny")
     if not allowed:
         await save_user(message.from_user.id, user)
-        await message.answer(wait_msg, reply_markup=main_menu)
+        await message.answer(wait_msg, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
 
@@ -100,7 +100,7 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
         # Отправка ответа
         await message.answer(
             format_response_with_balance(response, user),
-            reply_markup=main_menu, parse_mode='HTML'
+            reply_markup=menu_for(message.from_user.id), parse_mode='HTML'
         )
         await state.clear()
         
@@ -115,7 +115,7 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
 @router.message(PhotoDestinyStates.waiting_photo, F.text == BTN_CANCEL)
 async def cancel_photo(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer("Отменено. Возвращаю в меню.", reply_markup=main_menu)
+    await message.answer("Отменено. Возвращаю в меню.", reply_markup=menu_for(message.from_user.id))
 
 
 @router.message(PhotoDestinyStates.waiting_photo)

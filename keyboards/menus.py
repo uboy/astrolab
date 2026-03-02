@@ -1,4 +1,5 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from utils.config import settings
 from utils.constants import (
     BTN_HOROSCOPE, BTN_COMPATIBILITY, BTN_NUMEROLOGY, BTN_PHOTO_DESTINY,
     BTN_ZODIAC_QUIZ, BTN_LUCK_RESET, BTN_PAYMENT, BTN_ABOUT, BTN_CANCEL,
@@ -13,11 +14,27 @@ main_menu = ReplyKeyboardMarkup(
         [KeyboardButton(text=BTN_NUMEROLOGY), KeyboardButton(text=BTN_PHOTO_DESTINY)],
         [KeyboardButton(text=BTN_ZODIAC_QUIZ), KeyboardButton(text=BTN_LUCK_RESET)],
         [KeyboardButton(text=BTN_PAYMENT), KeyboardButton(text=BTN_SUBSCRIBE)],
+        [KeyboardButton(text=BTN_ABOUT)]
+    ],
+    resize_keyboard=True
+)
+
+admin_main_menu = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text=BTN_HOROSCOPE), KeyboardButton(text=BTN_COMPATIBILITY)],
+        [KeyboardButton(text=BTN_NUMEROLOGY), KeyboardButton(text=BTN_PHOTO_DESTINY)],
+        [KeyboardButton(text=BTN_ZODIAC_QUIZ), KeyboardButton(text=BTN_LUCK_RESET)],
+        [KeyboardButton(text=BTN_PAYMENT), KeyboardButton(text=BTN_SUBSCRIBE)],
         [KeyboardButton(text=BTN_ABOUT)],
         [KeyboardButton(text=BTN_ADMIN)]
     ],
     resize_keyboard=True
 )
+
+
+def menu_for(user_id: int) -> ReplyKeyboardMarkup:
+    """Вернуть главное меню в зависимости от прав."""
+    return admin_main_menu if user_id in getattr(settings, "ADMINS", []) else main_menu
 
 payment_menu = ReplyKeyboardMarkup(
     keyboard=[

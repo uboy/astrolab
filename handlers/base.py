@@ -17,7 +17,7 @@ from utils.constants import (
 )
 from utils.user_helpers import get_user_name, get_user, save_user, log_user_action
 from utils.message_helpers import return_to_main_menu
-from keyboards.menus import main_menu, payment_type_menu
+from keyboards.menus import menu_for, payment_type_menu
 import asyncio
 import random
 
@@ -118,7 +118,7 @@ async def choose_method(message: Message, state: FSMContext, bot: Bot):
     balance = f"📊 Бесплатные: {user['free_count']}, 💎 Оплаченные: {user['paid_count']}"
     await message.answer(
         MSG_PAYMENT_SUCCESS.format(amount=amount, balance=balance),
-        reply_markup=main_menu
+        reply_markup=menu_for(message.from_user.id)
     )
     await state.clear()
 
@@ -137,7 +137,7 @@ async def global_cancel(message: Message, state: FSMContext):
 # -----------------------------
 @router.message(F.text == BTN_ABOUT)
 async def about_company(message: Message):
-    await message.answer(MSG_ABOUT_COMPANY, reply_markup=main_menu, parse_mode='HTML')
+    await message.answer(MSG_ABOUT_COMPANY, reply_markup=menu_for(message.from_user.id), parse_mode='HTML')
 
 
 # -----------------------------
@@ -158,5 +158,5 @@ async def fallback(message: Message):
 
     await message.answer(
         MSG_FALLBACK_GREETING.format(name=user_name, services=services),
-        reply_markup=main_menu
+        reply_markup=menu_for(message.from_user.id)
     )

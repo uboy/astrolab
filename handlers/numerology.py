@@ -13,7 +13,7 @@ from utils.constants import (
 
 from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
-from keyboards.menus import main_menu, payment_menu, cancel_menu
+from keyboards.menus import menu_for, payment_menu, cancel_menu
 from datetime import datetime, timezone
 from handlers.base import PaymentStates
 from utils.ollama import ask_ollama
@@ -74,7 +74,7 @@ async def start_numerology(message: Message, state: FSMContext):
 )
 async def cancel_numerology(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer("Хорошо, возвращаемся в главное меню 😊", reply_markup=main_menu)
+    await message.answer("Хорошо, возвращаемся в главное меню 😊", reply_markup=menu_for(message.from_user.id))
 
 
 # ---------------------------------------------------------
@@ -139,12 +139,12 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     age = today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
 
     if age < 18:
-        await message.answer(MSG_UNDERAGE, reply_markup=main_menu)
+        await message.answer(MSG_UNDERAGE, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
 
     if age > 100:
-        await message.answer(MSG_OVERAGE, reply_markup=main_menu)
+        await message.answer(MSG_OVERAGE, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
 
@@ -199,7 +199,7 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
     # Отправка ответа
     await message.answer(
         format_response_with_balance(response, user),
-        reply_markup=main_menu,
+        reply_markup=menu_for(message.from_user.id),
         parse_mode='HTML'
     )
 
