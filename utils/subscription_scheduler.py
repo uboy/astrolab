@@ -1,6 +1,7 @@
 import asyncio
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from typing import Tuple
+import hashlib
 from utils.json_db import read_json, write_json
 from utils.zodiac import get_zodiac_sign
 from utils.ollama import ask_ollama
@@ -10,15 +11,29 @@ from utils.constants import DEFAULT_USER_NAME
 logger = get_logger(__name__)
 
 
-def _parse_time(value: str) -> time:
+def _default_send_time(user_id: str) -> time:
+    """
+    Детерминированно распределяем пользователей по окну 11:00-19:00.
+    """
+    window_start = time(hour=11, minute=0)
+    window_minutes = 8 * 60  # 11:00-19:00
+    uid_bytes = str(user_id).encode()
+    h = hashlib.md5(uid_bytes).hexdigest()
+    offset = int(h, 16) % window_minutes
+    start_dt = datetime.combine(datetime.now().date(), window_start)
+    send_dt = start_dt + timedelta(minutes=offset)
+    return send_dt.time()
+
+
+def _parse_time(value: str) -> time | None:
     try:
         parts = value.split(":")
         hour = int(parts[0])
         minute = int(parts[1]) if len(parts) > 1 else 0
     except Exception:
-        hour, minute = 13, 0
+        return None
 
-    hour = max(12, min(19, hour))
+    hour = max(0, min(23, hour))
     minute = max(0, min(59, minute))
     return time(hour=hour, minute=minute)
 
@@ -63,7 +78,13 @@ async def _process_once(bot, force: bool = False) -> int:
         if not sub.get("active"):
             continue
 
-        send_time = _parse_time(sub.get("time", "13:00"))
+        # Определяем время отправки
+        time_raw = sub.get("time")
+        parsed_time = _parse_time(time_raw) if time_raw not in (None, "auto", "") else None
+        if parsed_time is None:
+            send_time = _default_send_time(uid)
+        else:
+            send_time = parsed_time
         target_dt = datetime.combine(now.date(), send_time)
 
         if sub.get("last_sent") == today_iso and not force:

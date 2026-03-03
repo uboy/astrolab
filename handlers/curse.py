@@ -13,6 +13,7 @@ from utils.message_helpers import format_response_with_balance, process_ollama_w
 from keyboards.menus import menu_for, payment_menu
 from handlers.base import PaymentStates
 from utils.rate_limit import check_rate_limit
+from utils.prompts import ZODIAC_QUIZ_PROMPT, DISCLAIMER
 
 router = Router()
 
@@ -103,10 +104,10 @@ async def handle_quiz_answer(message: Message, state: FSMContext, bot: Bot):
 
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
     answers_text = "\n".join([f"{a['question']} → {a['answer']}" for a in answers])
-    prompt = (
-        "Ты весёлый астролог. По ответам пользователя попробуй угадать его знак зодиака. "
-        "Дай уверенное предположение и кратко объясни, почему, с юмором и эмодзи. "
-        f"Имя: {user_name}. Ответы:\n{answers_text}"
+    prompt = ZODIAC_QUIZ_PROMPT.format(
+        user_name=user_name,
+        answers=answers_text,
+        disclaimer=DISCLAIMER
     )
 
     from utils.ollama import ask_ollama
