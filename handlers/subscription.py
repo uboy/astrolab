@@ -11,6 +11,7 @@ from utils.constants import (
 )
 from utils.user_helpers import get_user, save_user
 from keyboards.menus import menu_for, cancel_menu
+from utils.prices import get_prices
 
 router = Router()
 
@@ -33,13 +34,15 @@ def _unsubscribe_keyboard() -> ReplyKeyboardMarkup:
 async def start_subscribe(message: Message, state: FSMContext):
     user = await get_user(message.from_user.id, message.from_user)
     sub = user.get("subscription") or {}
+    prices = await get_prices()
+    price = prices.get("subscription", 1)
 
     if sub.get("active"):
         await state.clear()
         await message.answer(MSG_ALREADY_SUBSCRIBED, reply_markup=_unsubscribe_keyboard())
         return
 
-    await message.answer(MSG_SUBSCRIBE_ASK_BIRTHDATE, reply_markup=cancel_menu)
+    await message.answer(MSG_SUBSCRIBE_ASK_BIRTHDATE.format(price=price), reply_markup=cancel_menu)
     await state.set_state(SubscriptionStates.waiting_birthdate)
 
 
@@ -72,6 +75,8 @@ async def handle_birthdate(message: Message, state: FSMContext):
         await message.answer(MSG_SUB_INVALID_DATE, reply_markup=cancel_menu)
         return
 
+    prices = await get_prices()
+    price = prices.get("subscription", 1)
     user = await get_user(message.from_user.id, message.from_user)
     user["subscription"] = {
         "active": True,
@@ -81,4 +86,4 @@ async def handle_birthdate(message: Message, state: FSMContext):
     }
     await save_user(message.from_user.id, user)
     await state.clear()
-    await message.answer(MSG_SUBSCRIBE_OK.format(time="по умолчанию в окне 11:00-19:00"), reply_markup=menu_for(message.from_user.id))
+    await message.answer(MSG_SUBSCRIBE_OK.format(time="по умолчанию в окне 11:00-19:00", price=price), reply_markup=menu_for(message.from_user.id))

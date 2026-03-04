@@ -9,8 +9,10 @@ from typing import Dict, Any, Tuple, Optional
 from aiogram.types import User as TgUser
 from utils.constants import (
     MSG_RATE_LIMIT, OLLAMA_FEATURES,
-    OLLAMA_PER_MIN, OLLAMA_PER_HOUR, OTHER_PER_MIN, OTHER_PER_HOUR
+    OLLAMA_PER_MIN, OLLAMA_PER_HOUR, OTHER_PER_MIN, OTHER_PER_HOUR,
+    PREMIUM_MULTIPLIER
 )
+from datetime import timedelta
 
 
 def _now_iso() -> str:
@@ -45,6 +47,37 @@ def _default_subscription() -> Dict[str, Any]:
         "last_sent": None,
     }
 
+def _default_premium() -> Dict[str, Any]:
+    return {
+        "active": False,
+        "until": None
+    }
+
+
+def _expire_premium_if_needed(user: Dict[str, Any]) -> bool:
+    """
+    Проверить истечение премиума и обновить данные пользователя при необходимости.
+    Возвращает True, если данные изменились.
+    """
+    premium = user.get("premium") or {}
+    until = premium.get("until")
+    if not until:
+        return False
+    try:
+        dt = datetime.fromisoformat(until)
+    except Exception:
+        premium["active"] = False
+        premium["until"] = None
+        user["premium"] = premium
+        return True
+    now = datetime.now(timezone.utc)
+    if dt < now:
+        premium["active"] = False
+        premium["until"] = None
+        user["premium"] = premium
+        return True
+    return False
+
 
 async def get_user(user_id: int, telegram_user: Optional[TgUser] = None) -> Dict[str, Any]:
     """
@@ -70,6 +103,8 @@ async def get_user(user_id: int, telegram_user: Optional[TgUser] = None) -> Dict
             "first_seen": now_iso,
             "last_seen": now_iso,
             "profile": _extract_profile(telegram_user),
+            "seen_disclaimer": False,
+            "premium": _default_premium(),
         }
     )
 
@@ -88,11 +123,17 @@ async def get_user(user_id: int, telegram_user: Optional[TgUser] = None) -> Dict
     subscription.setdefault("birthdate", None)
     subscription.setdefault("last_sent", None)
     user["subscription"] = subscription
+    premium = user.get("premium") or _default_premium()
+    premium.setdefault("active", False)
+    premium.setdefault("until", None)
+    user["premium"] = premium
 
+    # first_seen/last_seen and чистка премиума
     # first_seen/last_seen
     if not user.get("first_seen"):
         user["first_seen"] = user["history"][0] if user["history"] else now_iso
     user["last_seen"] = now_iso
+    expired = _expire_premium_if_needed(user)
 
     # Обновляем профиль, если есть новые данные
     if telegram_user:
@@ -102,6 +143,7 @@ async def get_user(user_id: int, telegram_user: Optional[TgUser] = None) -> Dict
         user["profile"] = current_profile
     else:
         user.setdefault("profile", {})
+    user.setdefault("seen_disclaimer", False)
 
     users[str(user_id)] = user
     await write_json("data/users.json", users)
@@ -167,10 +209,13 @@ async def decrement_user_limit(
     """
     user = await get_user(user_id, telegram_user)
 
+    remaining = price
     if user["free_count"] > 0:
-        user["free_count"] = max(0, user["free_count"] - price)
-    elif user["paid_count"] > 0:
-        user["paid_count"] = max(0, user["paid_count"] - price)
+        use_free = min(user["free_count"], remaining)
+        user["free_count"] -= use_free
+        remaining -= use_free
+    if remaining > 0:
+        user["paid_count"] = max(0, user["paid_count"] - remaining)
 
     ts_iso = _now_iso()
     ts = datetime.now(timezone.utc).timestamp()
@@ -233,6 +278,47 @@ def format_balance(user: Dict[str, Any]) -> str:
         free_count=user["free_count"],
         paid_count=user["paid_count"]
     )
+
+
+def is_premium_active(user: Dict[str, Any]) -> bool:
+    premium = user.get("premium") or {}
+    until = premium.get("until")
+    if not until:
+        return False
+    try:
+        dt = datetime.fromisoformat(until)
+    except Exception:
+        return False
+    now = datetime.now(timezone.utc)
+    if dt < now:
+        premium["active"] = False
+        premium["until"] = None
+        user["premium"] = premium
+        return False
+    return True
+
+
+def activate_premium(user: Dict[str, Any], days: int) -> Dict[str, Any]:
+    now = datetime.now(timezone.utc)
+    premium = user.get("premium") or {}
+    current_until = premium.get("until")
+    base = now
+    if current_until:
+        try:
+            dt = datetime.fromisoformat(current_until)
+            if dt > now:
+                base = dt
+        except Exception:
+            base = now
+    new_until = base + timedelta(days=days)
+    premium["active"] = True
+    premium["until"] = new_until.isoformat()
+    user["premium"] = premium
+    return user
+
+
+def has_balance(user: Dict[str, Any], price: int) -> bool:
+    return user.get("free_count", 0) + user.get("paid_count", 0) >= price
 
 
 def get_user_name(user_first_name: Optional[str], default: str = "Друг") -> str:

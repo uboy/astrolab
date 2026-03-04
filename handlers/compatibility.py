@@ -8,7 +8,7 @@ from utils.constants import (
     MSG_NO_FREE_PAID, MSG_OLLAMA_COMPATIBILITY_ERROR, DEFAULT_USER_NAME,
     BTN_DONE, BTN_CANCEL, MSG_COMPATIBILITY_PHOTO_PROMPT, MSG_COMPATIBILITY_COLLECTED
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user, save_user
+from utils.user_helpers import check_user_limit, get_user_name, get_user, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import menu_for, payment_menu, cancel_or_done_menu, cancel_menu
 from handlers.base import PaymentStates
@@ -16,6 +16,7 @@ import base64
 from io import BytesIO
 from utils.rate_limit import check_rate_limit
 from utils.prompts import COMPATIBILITY_PROMPT, DISCLAIMER
+from utils.pricing_helpers import ensure_balance_and_charge
 
 router = Router()
 
@@ -41,7 +42,7 @@ def _mode_keyboard():
     )
 
 
-@router.message(F.text == BTN_COMPATIBILITY, StateFilter(None))
+@router.message(F.text.func(lambda t: t and t.startswith(BTN_COMPATIBILITY)), StateFilter(None))
 async def start_compatibility(message: Message, state: FSMContext):
     await get_user(message.from_user.id, message.from_user)
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
@@ -73,8 +74,8 @@ async def choose_mode(message: Message, state: FSMContext):
         await state.update_data(photos=[], text_details=None)
         await state.set_state(CompatibilityStates.waiting_photos)
         await message.answer(
-            "Пришлите 1–2 фото (можно с подписями). Когда хватит, нажмите «Готово».",
-            reply_markup=cancel_or_done_menu
+            "Пришлите два фото (можно с подписями). После второго запускаю анализ автоматически.",
+            reply_markup=cancel_menu
         )
         return
 
@@ -124,25 +125,21 @@ async def collect_photos(message: Message, state: FSMContext, bot: Bot):
             photo = message.photo[-1]
             photos.append(await _photo_to_base64(bot, photo.file_id))
             await state.update_data(photos=photos)
-            await message.answer(f"Фото принято ({len(photos)}/2).", reply_markup=cancel_or_done_menu)
+            await message.answer(f"Фото принято ({len(photos)}/2).", reply_markup=cancel_menu)
+            if len(photos) >= 2:
+                await run_compatibility(message, state, bot)
+                return
         except Exception:
             await message.answer("Не удалось принять фото, попробуйте ещё раз или нажмите «Отмена».")
-        return
-
-    if message.text == BTN_DONE:
-        if not photos:
-            await message.answer("Нужно хотя бы одно фото или ввести данные.", reply_markup=cancel_or_done_menu)
-            return
-        await run_compatibility(message, state, bot)
         return
 
     if message.text and not text_details:
         text_details = message.text.strip()
         await state.update_data(text_details=text_details)
-        await message.answer("Записал подписи. Можно добавить ещё фото или нажать «Готово».", reply_markup=cancel_or_done_menu)
+        await message.answer("Записал подписи. Добавляйте фото.", reply_markup=cancel_menu)
         return
 
-    await message.answer("Пришлите фото или нажмите «Готово».", reply_markup=cancel_or_done_menu)
+    await message.answer("Пришлите два фото.", reply_markup=cancel_menu)
 
 
 async def run_compatibility(message: Message, state: FSMContext, bot: Bot):
@@ -151,6 +148,10 @@ async def run_compatibility(message: Message, state: FSMContext, bot: Bot):
         await message.answer(MSG_NO_FREE_PAID, reply_markup=payment_menu)
         await state.set_state(PaymentStates.choosing_amount)
         return
+
+    data = await state.get_data()
+    text_details = data.get("text_details")
+    photos = data.get("photos", [])
     allowed, wait_msg = check_rate_limit(user, "compatibility")
     if not allowed:
         await save_user(message.from_user.id, user)
@@ -158,9 +159,18 @@ async def run_compatibility(message: Message, state: FSMContext, bot: Bot):
         await state.clear()
         return
 
-    data = await state.get_data()
-    text_details = data.get("text_details")
-    photos = data.get("photos", [])
+    charged = await ensure_balance_and_charge(
+        message,
+        "compatibility",
+        user,
+        "compatibility",
+        {"text": text_details, "photos": len(photos)}
+    )
+    if not charged:
+        await state.clear()
+        return
+    user = charged
+
     await state.set_state(CompatibilityStates.waiting_ollama_response)
     await message.answer(MSG_COMPATIBILITY_COLLECTED, reply_markup=cancel_menu)
 
@@ -178,13 +188,6 @@ async def run_compatibility(message: Message, state: FSMContext, bot: Bot):
 
     if not response.strip():
         response = MSG_OLLAMA_COMPATIBILITY_ERROR
-
-    user = await decrement_user_limit(
-        message.from_user.id,
-        feature="compatibility",
-        details={"text": text_details, "photos": len(photos)},
-        telegram_user=message.from_user,
-    )
 
     await message.answer(
         format_response_with_balance(response, user),

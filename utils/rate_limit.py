@@ -2,8 +2,9 @@ from datetime import datetime, timezone
 from utils.constants import (
     MSG_RATE_LIMIT, OLLAMA_FEATURES,
     OLLAMA_PER_MIN, OLLAMA_PER_HOUR,
-    OTHER_PER_MIN, OTHER_PER_HOUR
+    OTHER_PER_MIN, OTHER_PER_HOUR, PREMIUM_MULTIPLIER
 )
+from utils.user_helpers import is_premium_active
 
 
 def _now_ts() -> float:
@@ -29,6 +30,10 @@ def check_rate_limit(user: dict, feature: str) -> tuple[bool, str]:
 
     rate = _trim(user.get("rate", {"minute": [], "hour": []}))
     user["rate"] = rate
+
+    multiplier = PREMIUM_MULTIPLIER if is_premium_active(user) else 1
+    per_min *= multiplier
+    per_hour *= multiplier
 
     count_min = len(rate.get("minute", []))
     count_hour = len(rate.get("hour", []))

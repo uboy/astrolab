@@ -9,13 +9,15 @@ from utils.constants import (
     MSG_UNDERAGE, MSG_OVERAGE, MSG_NO_FREE_PAID, MSG_OLLAMA_HOROSCOPE_ERROR,
     DEFAULT_USER_NAME, MSG_BALANCE_FORMAT
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, save_user
+from utils.user_helpers import check_user_limit, get_user_name, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import menu_for, payment_menu, payment_type_menu, cancel_menu
 from datetime import datetime, timezone
 from handlers.base import PaymentStates
 from utils.zodiac import get_zodiac_sign
 from utils.prompts import HOROSCOPE_PROMPT, DISCLAIMER
+from utils.pricing_helpers import ensure_balance_and_charge
+from utils.prices import get_prices
 from utils.rate_limit import check_rate_limit
 
 router = Router()
@@ -36,7 +38,7 @@ class HoroscopeStates(StatesGroup):
 # ---------------------------------------------------------
 # 🟦 Обработка начала гороскопа
 # ---------------------------------------------------------
-@router.message(F.text == BTN_HOROSCOPE, StateFilter(None))
+@router.message(F.text.func(lambda t: t and t.startswith(BTN_HOROSCOPE)), StateFilter(None))
 async def start_horoscope(message: Message, state: FSMContext):
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
     user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
@@ -110,6 +112,11 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
         await message.answer(wait_msg, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
+    charged = await ensure_balance_and_charge(message, "horoscope", user, "horoscope", {"birthdate": message.text.strip(), "age": age})
+    if not charged:
+        await state.clear()
+        return
+    user = charged
 
     await state.set_state(HoroscopeStates.waiting_ollama_response)
 
@@ -133,14 +140,6 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
 
     if not response.strip():
         response = MSG_OLLAMA_HOROSCOPE_ERROR
-
-    # Списание лимита
-    user = await decrement_user_limit(
-        message.from_user.id,
-        feature="horoscope",
-        details={"birthdate": message.text.strip(), "age": age},
-        telegram_user=message.from_user,
-    )
 
     # Отправка ответа
     formatted = f"{zodiac_label}\n\n{response}"

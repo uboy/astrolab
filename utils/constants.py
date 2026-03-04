@@ -41,6 +41,7 @@ BTN_ADMIN_LOGS = "📝 Логи"
 BTN_ADMIN_USER_SEND = "📨 Отправить сообщение"
 BTN_ADMIN_SUBSCRIBED = "Подписчики"
 BTN_ADMIN_SEND_SUBS = "🚀 Отправить подписчикам"
+BTN_ADMIN_PRICES = "💲 Цены"
 
 # Кнопки оплаты
 BTN_PAYMENT_AMOUNT_5 = "5"
@@ -53,6 +54,10 @@ BTN_PAYMENT_METHOD_COINS = "Монетки в портал 🪙✨"
 BTN_SUBSCRIBE = "Подписка на гороскоп"
 BTN_UNSUBSCRIBE = "Отписаться от рассылки"
 BTN_DONE = "Готово"
+BTN_PREMIUM = "Премиум"
+BTN_PREMIUM_1D = "Премиум 1 день"
+BTN_PREMIUM_2D = "Премиум 2 дня"
+BTN_PREMIUM_3D = "Премиум 3 дня"
 
 # Цена услуги
 PRICE_HOROSCOPE = 1
@@ -60,6 +65,29 @@ PRICE_COMPATIBILITY = 1
 PRICE_NUMEROLOGY = 1
 PRICE_PHOTO_DESTINY = 1
 PRICE_CURSE_REMOVAL = 1
+PRICE_ZODIAC_QUIZ = 1
+PRICE_LUCK_RESET = 1
+PRICE_PREMIUM_1D = 5
+PRICE_PREMIUM_2D = 8
+PRICE_PREMIUM_3D = 10
+PRICE_SUBSCRIPTION = 1
+DEFAULT_PRICES = {
+    "horoscope": PRICE_HOROSCOPE,
+    "compatibility": PRICE_COMPATIBILITY,
+    "numerology": PRICE_NUMEROLOGY,
+    "photo_destiny": PRICE_PHOTO_DESTINY,
+    "zodiac_quiz": PRICE_ZODIAC_QUIZ,
+    "luck_reset": PRICE_LUCK_RESET,
+    "premium_1d": PRICE_PREMIUM_1D,
+    "premium_2d": PRICE_PREMIUM_2D,
+    "premium_3d": PRICE_PREMIUM_3D,
+    "subscription": PRICE_SUBSCRIPTION,
+}
+PREMIUM_PLANS = {
+    "premium_1d": PRICE_PREMIUM_1D,
+    "premium_2d": PRICE_PREMIUM_2D,
+    "premium_3d": PRICE_PREMIUM_3D,
+}
 
 # Списки для проверки
 MAIN_MENU_BUTTONS = {
@@ -72,6 +100,7 @@ MAIN_MENU_BUTTONS = {
     BTN_PAYMENT,
     BTN_ABOUT,
     BTN_SUBSCRIBE,
+    BTN_PREMIUM,
 }
 
 PAYMENT_AMOUNTS = {BTN_PAYMENT_AMOUNT_5, BTN_PAYMENT_AMOUNT_10, BTN_PAYMENT_AMOUNT_15, BTN_PAYMENT_AMOUNT_20}
@@ -104,12 +133,14 @@ ADMIN_BUTTONS = {
     BTN_ADMIN_USER_SEND,
     BTN_ADMIN_SETTINGS,
     BTN_ADMIN_LOGS,
+    BTN_ADMIN_PRICES,
 }
 
 ALL_MENU_BUTTONS = MAIN_MENU_BUTTONS | ADMIN_BUTTONS
 
 # Сообщения
 MSG_NO_FREE_PAID = "💰 У вас закончились бесплатные и оплаченные обращения! Пополните баланс."
+MSG_NOT_ENOUGH_FUNDS = "💰 Недостаточно средств для {feature}. Нужно: {price} у.е, доступно: {free}+{paid}."
 MSG_RETURNED_TO_MENU = "🔮 Вы вернулись в главное меню."
 MSG_RETURNING_TO_MENU = "🔮 Возвращаю в главное меню:"
 MSG_PAYMENT_CANCELLED = "❌ Оплата отменена."
@@ -152,14 +183,15 @@ OLLAMA_PER_MIN = 1
 OLLAMA_PER_HOUR = 50
 OTHER_PER_MIN = 10
 OTHER_PER_HOUR = 500
+PREMIUM_MULTIPLIER = 3
 
 # Подписки
-MSG_SUBSCRIBE_ASK_BIRTHDATE = "📅 Введите дату рождения для ежедневного гороскопа (ДД.MM.ГГГГ):"
-MSG_SUBSCRIBE_OK = "✅ Подписка оформлена! Гороскоп придёт в окне 11:00–19:00 (ваше время по умолчанию: {time})."
+MSG_SUBSCRIBE_ASK_BIRTHDATE = "📅 Введите дату рождения для ежедневного гороскопа (ДД.MM.ГГГГ). Стоимость {price} у.е в день."
+MSG_SUBSCRIBE_OK = "✅ Подписка оформлена! Гороскоп придёт в окне 11:00–19:00 (ваше время по умолчанию: {time}). Списываю {price} у.е при каждой отправке."
 MSG_UNSUB_OK = "❌ Вы отписаны от рассылки ежедневных гороскопов."
 MSG_ALREADY_SUBSCRIBED = "🌞 Вы уже в списке на ежедневные гороскопы. Хотите отписаться?"
 MSG_NOT_SUBSCRIBED = "ℹ️ Вы ещё не подписаны. Хотите подписаться?"
-MSG_SUB_TIME_SET = "⏰ Время рассылки обновлено: {time}. Сообщения приходят только с 12:00 до 15:00."
+MSG_SUB_TIME_SET = "⏰ Время рассылки обновлено: {time}. Сообщения приходят в окне 11:00–19:00 или по указанному времени."
 MSG_SUB_INVALID_DATE = "❌ Неверный формат даты. Введите в формате ДД.MM.ГГГГ."
 
 # Ошибки валидации
@@ -203,6 +235,7 @@ MSG_ADMIN_INVALID_TIME = "⚠️ Введите время в формате Ч�
 MSG_ADMIN_NO_USER = "Пользователь с ID {user_id} не найден."
 MSG_ADMIN_BROADCAST_ASK = "Введите текст уведомления для всех подписчиков:"
 MSG_ADMIN_BROADCAST_DONE = "✅ Уведомление отправлено подписчикам: {count} чел."
+MSG_SUB_FUND_FAIL = "⚠️ Не удалось списать {price} у.е за гороскоп. Подписка остановлена."
 
 # Сообщения о проклятиях
 MSG_LUCK_RESET_RESULT = "🍀 Ваша полоса невезения выглядит так:\n\n{curse}\n\nПерезапустим удачу?"
@@ -224,5 +257,6 @@ MSG_ABOUT_COMPANY = (
     "📜 Делю слишком длинные пророчества, чтобы не утомлять колдунов и пользователей.\n\n"
     "🎭 Магия и ритуалы для всех, кто верит в чудеса 🕊️\n\n"
     "🔮 <b>Ваше будущее зависит только от одной кнопки и немного — от судьбы.</b>\n\n"
+    "ℹ️ Это развлекательный контент — решения за вами.\n\n"
     "© 2025 НИИ НПО «Шар Консалт Инкорпорейтед». Все магические права защищены."
 )

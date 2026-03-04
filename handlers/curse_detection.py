@@ -18,6 +18,7 @@ from handlers.base import PaymentStates
 from utils.user_helpers import check_user_limit, log_user_action, save_user
 from utils.rate_limit import check_rate_limit
 import datetime
+from utils.pricing_helpers import ensure_balance_and_charge
 
 router = Router()
 
@@ -28,7 +29,7 @@ class CurseDetectionStates(StatesGroup):
 # -----------------------------
 # Старт перезапуска удачи
 # -----------------------------
-@router.message(F.text == BTN_LUCK_RESET, StateFilter(None))
+@router.message(F.text.func(lambda t: t and t.startswith(BTN_LUCK_RESET)), StateFilter(None))
 async def start_curse_detection(message: Message, state: FSMContext):
     user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
     if not has_limit:
@@ -36,11 +37,24 @@ async def start_curse_detection(message: Message, state: FSMContext):
         #await state.clear()
         await state.set_state(PaymentStates.choosing_amount)
         return
+    # Случайно выбираем забавный сценарий неудачи
+    selected_curse = random.choice(CURSES)
     allowed, wait_msg = check_rate_limit(user, "luck_reset")
     if not allowed:
         await save_user(message.from_user.id, user)
         await message.answer(wait_msg, reply_markup=menu_for(message.from_user.id))
         return
+    charged = await ensure_balance_and_charge(
+        message,
+        "luck_reset",
+        user,
+        "luck_reset",
+        {"suggested_curse": selected_curse}
+    )
+    if not charged:
+        await state.clear()
+        return
+    user = charged
     # фиксируем использование небесплатной функции без списания лимита
     ts = datetime.datetime.now(datetime.timezone.utc).timestamp()
     rate = user.get("rate", {"minute": [], "hour": []})
@@ -49,9 +63,6 @@ async def start_curse_detection(message: Message, state: FSMContext):
     user["rate"] = rate
     await save_user(message.from_user.id, user)
 
-    # Случайно выбираем забавный сценарий неудачи
-    selected_curse = random.choice(CURSES)
-    
     # Сохраняем выбранное проклятие в состоянии
     await state.update_data(curse=selected_curse)
     await state.set_state(CurseDetectionStates.waiting_decision)

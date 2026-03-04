@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     OLLAMA_URL: str
     OLLAMA_MODEL: str
     OLLAMA_VISION_MODEL: str = "qwen3-vl:32b"
+    TIMEZONE: str = "local"
     RATE_LIMIT_PER_MIN: int
     RATE_LIMIT_PER_HOUR: int
     FREE_MESSAGES_COUNT: int

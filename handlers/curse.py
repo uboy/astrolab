@@ -8,12 +8,13 @@ from utils.constants import (
     MSG_ZODIAC_QUIZ_GREETING, MSG_ZODIAC_QUIZ_DONE, MSG_ZODIAC_QUIZ_ERROR,
     MSG_NO_FREE_PAID, DEFAULT_USER_NAME
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, save_user
+from utils.user_helpers import check_user_limit, get_user_name, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import menu_for, payment_menu
 from handlers.base import PaymentStates
 from utils.rate_limit import check_rate_limit
 from utils.prompts import ZODIAC_QUIZ_PROMPT, DISCLAIMER
+from utils.pricing_helpers import ensure_balance_and_charge
 
 router = Router()
 
@@ -55,7 +56,7 @@ def _question_keyboard(options):
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
-@router.message(F.text == BTN_ZODIAC_QUIZ, StateFilter(None))
+@router.message(F.text.func(lambda t: t and t.startswith(BTN_ZODIAC_QUIZ)), StateFilter(None))
 async def start_quiz(message: Message, state: FSMContext):
     user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
     if not has_limit:
@@ -117,19 +118,23 @@ async def handle_quiz_answer(message: Message, state: FSMContext, bot: Bot):
         await message.answer(wait_msg, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
+    charged = await ensure_balance_and_charge(
+        message,
+        "zodiac_quiz",
+        user,
+        "zodiac_quiz",
+        {"answers": answers}
+    )
+    if not charged:
+        await state.clear()
+        return
+    user = charged
     response = await process_ollama_with_progress(
         bot, message.chat.id, ask_ollama, prompt
     )
 
     if not response.strip():
         response = MSG_ZODIAC_QUIZ_ERROR
-
-    user = await decrement_user_limit(
-        message.from_user.id,
-        feature="zodiac_quiz",
-        details={"answers": answers},
-        telegram_user=message.from_user,
-    )
 
     await message.answer(
         format_response_with_balance(response, user),

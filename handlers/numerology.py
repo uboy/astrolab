@@ -11,7 +11,7 @@ from utils.constants import (
     DEFAULT_USER_NAME
 )
 
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user, save_user
+from utils.user_helpers import check_user_limit, get_user_name, get_user, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import menu_for, payment_menu, cancel_menu
 from datetime import datetime, timezone
@@ -19,6 +19,7 @@ from handlers.base import PaymentStates
 from utils.ollama import ask_ollama
 from utils.rate_limit import check_rate_limit
 from utils.prompts import NUMEROLOGY_PROMPT, DISCLAIMER
+from utils.pricing_helpers import ensure_balance_and_charge
 
 router = Router()
 
@@ -40,7 +41,7 @@ class NumerologyStates(StatesGroup):
 # ---------------------------------------------------------
 # 🟦 Запуск нумерологии
 # ---------------------------------------------------------
-@router.message(F.text == BTN_NUMEROLOGY, StateFilter(None))
+@router.message(F.text.func(lambda t: t and t.startswith(BTN_NUMEROLOGY)), StateFilter(None))
 async def start_numerology(message: Message, state: FSMContext):
     await get_user(message.from_user.id, message.from_user)
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
@@ -156,12 +157,25 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
         #await state.clear()
         await state.set_state(PaymentStates.choosing_amount)
         return
+    data = await state.get_data()
+    name = data.get("name", DEFAULT_USER_NAME)
     allowed, wait_msg = check_rate_limit(user, "numerology")
     if not allowed:
         await save_user(message.from_user.id, user)
         await message.answer(wait_msg, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
+    charged = await ensure_balance_and_charge(
+        message,
+        "numerology",
+        user,
+        "numerology",
+        {"name": name, "birthdate": message.text.strip(), "age": age}
+    )
+    if not charged:
+        await state.clear()
+        return
+    user = charged
 
     await state.set_state(NumerologyStates.waiting_ollama_response)
 
@@ -184,14 +198,6 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
 
     if not response.strip():
         response = MSG_OLLAMA_NUMEROLOGY_ERROR
-
-    # Списание лимита
-    user = await decrement_user_limit(
-        message.from_user.id,
-        feature="numerology",
-        details={"name": name, "birthdate": message.text.strip(), "age": age},
-        telegram_user=message.from_user,
-    )
 
     # Отправка ответа
     await message.answer(

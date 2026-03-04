@@ -7,13 +7,14 @@ from utils.constants import (
     BTN_PHOTO_DESTINY, MSG_PHOTO_DESTINY_GREETING, MSG_PHOTO_INVALID,
     MSG_NO_FREE_PAID, MSG_OLLAMA_PHOTO_ERROR, DEFAULT_USER_NAME, BTN_CANCEL
 )
-from utils.user_helpers import check_user_limit, decrement_user_limit, get_user_name, get_user, save_user
+from utils.user_helpers import check_user_limit, get_user_name, get_user, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import menu_for, payment_menu, cancel_menu
 import base64
 from handlers.base import PaymentStates
 from utils.rate_limit import check_rate_limit
 from utils.prompts import PHOTO_DESTINY_PROMPT, DISCLAIMER
+from utils.pricing_helpers import ensure_balance_and_charge
 
 router = Router()
 
@@ -22,7 +23,7 @@ class PhotoDestinyStates(StatesGroup):
     waiting_ollama_response = State()
 
 
-@router.message(F.text == BTN_PHOTO_DESTINY, StateFilter(None))
+@router.message(F.text.func(lambda t: t and t.startswith(BTN_PHOTO_DESTINY)), StateFilter(None))
 async def start_photo_destiny(message: Message, state: FSMContext):
     await get_user(message.from_user.id, message.from_user)
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
@@ -48,6 +49,17 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
         await message.answer(wait_msg, reply_markup=menu_for(message.from_user.id))
         await state.clear()
         return
+    charged = await ensure_balance_and_charge(
+        message,
+        "photo_destiny",
+        user,
+        "photo_destiny",
+        {"photo_file_id": message.photo[-1].file_id if message.photo else None}
+    )
+    if not charged:
+        await state.clear()
+        return
+    user = charged
 
     await state.set_state(PhotoDestinyStates.waiting_ollama_response)
     
@@ -81,14 +93,6 @@ async def process_photo(message: Message, state: FSMContext, bot: Bot):
         
         if not response.strip():
             response = MSG_OLLAMA_PHOTO_ERROR
-
-        # Списание лимита
-        user = await decrement_user_limit(
-            message.from_user.id,
-            feature="photo_destiny",
-            details={"photo_file_id": photo.file_id},
-            telegram_user=message.from_user,
-        )
 
         # Отправка ответа
         await message.answer(
