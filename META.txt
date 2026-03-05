@@ -1,5 +1,5 @@
-step: 12
+step: 13
 date: 2025-12-17
-member: dev_shalugin
-commit: 6506205
-subject: add prices
+member: dev_shvechikov
+commit: 3117bcd
+subject: add info about prices and payment

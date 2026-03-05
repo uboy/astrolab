@@ -8,22 +8,35 @@ PRICES_FILE = "data/prices.json"
 
 def _ensure_default_sync() -> dict:
     path = Path(PRICES_FILE)
-    if not path.exists():
+    data = DEFAULT_PRICES.copy()
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data.update(loaded)
+        except Exception:
+            pass
+    else:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(DEFAULT_PRICES, ensure_ascii=False, indent=2), encoding="utf-8")
-        return DEFAULT_PRICES.copy()
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
-        return DEFAULT_PRICES.copy()
+        pass
+    return data
 
 
 async def get_prices() -> dict:
     data = await read_json(PRICES_FILE)
-    if not data:
-        data = DEFAULT_PRICES.copy()
-        await write_json(PRICES_FILE, data)
-    return data
+    changed = False
+    if not isinstance(data, dict):
+        data = {}
+    merged = DEFAULT_PRICES.copy()
+    merged.update(data)
+    if merged != data:
+        changed = True
+    if changed:
+        await write_json(PRICES_FILE, merged)
+    return merged
 
 
 def get_prices_sync() -> dict:

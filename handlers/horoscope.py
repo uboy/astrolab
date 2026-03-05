@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from handlers.base import PaymentStates
 from utils.zodiac import get_zodiac_sign
 from utils.prompts import HOROSCOPE_PROMPT, DISCLAIMER
-from utils.pricing_helpers import ensure_balance_and_charge
+from utils.pricing_helpers import ensure_balance_and_charge, show_price_info
 from utils.prices import get_prices
 from utils.rate_limit import check_rate_limit
 
@@ -48,6 +48,8 @@ async def start_horoscope(message: Message, state: FSMContext):
         #await state.clear()
         await state.set_state(PaymentStates.choosing_amount)
         return
+
+    await show_price_info(message, user, "horoscope", "Гороскоп")
 
     await message.answer(
         MSG_HOROSCOPE_GREETING.format(name=user_name),
