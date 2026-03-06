@@ -12,7 +12,7 @@ from utils.constants import (
 from utils.user_helpers import check_user_limit, get_user_name, save_user
 from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from keyboards.menus import menu_for, payment_menu, payment_type_menu, cancel_menu
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from handlers.base import PaymentStates
 from utils.zodiac import get_zodiac_sign
 from utils.prompts import HOROSCOPE_PROMPT, DISCLAIMER
@@ -49,7 +49,7 @@ async def start_horoscope(message: Message, state: FSMContext):
         await state.set_state(PaymentStates.choosing_amount)
         return
 
-    await show_price_info(message, user, "horoscope", "Гороскоп")
+    await show_price_info(message, user, "horoscope", "Гороскоп на неделю")
 
     await message.answer(
         MSG_HOROSCOPE_GREETING.format(name=user_name),
@@ -120,6 +120,18 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
         return
     user = charged
 
+    today_date = today.date()
+    start_current_week = today_date - timedelta(days=today_date.weekday())
+    end_current_week = start_current_week + timedelta(days=6)
+    start_next_week = end_current_week + timedelta(days=1)
+    end_next_week = start_next_week + timedelta(days=6)
+
+    def _format_range(start, end):
+        return f"{start.strftime('%d.%m')} - {end.strftime('%d.%m')}"
+
+    current_week_range = _format_range(start_current_week, end_current_week)
+    next_week_range = _format_range(start_next_week, end_next_week)
+
     await state.set_state(HoroscopeStates.waiting_ollama_response)
 
     user_name = get_user_name(message.from_user.first_name, DEFAULT_USER_NAME)
@@ -131,6 +143,8 @@ async def get_birthdate(message: Message, state: FSMContext, bot: Bot):
         user_name=user_name,
         pretty_date=pretty_date,
         zodiac_label=zodiac_label,
+        current_week_range=current_week_range,
+        next_week_range=next_week_range,
         disclaimer=DISCLAIMER
     )
 

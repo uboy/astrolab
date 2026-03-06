@@ -64,6 +64,10 @@ def _parse_time(value: str) -> time | None:
 async def _build_horoscope_prompt(user: dict) -> Tuple[str, str]:
     sub = user.get("subscription") or {}
     birthdate = sub.get("birthdate")
+    now_local = _now_local().date()
+    tomorrow = now_local + timedelta(days=1)
+    today_label = now_local.strftime("%d.%m")
+    tomorrow_label = tomorrow.strftime("%d.%m")
     zodiac_label = "✨ Неизвестный знак"
     if birthdate:
         try:
@@ -78,11 +82,12 @@ async def _build_horoscope_prompt(user: dict) -> Tuple[str, str]:
 
     user_name = (user.get("profile") or {}).get("first_name") or DEFAULT_USER_NAME
     prompt = (
-        "Составь короткий ежедневный гороскоп (3-4 абзаца) с дружелюбным юмором и эмодзи. "
+        "Составь короткий гороскоп (3-4 абзаца) с дружелюбным юмором и эмодзи. "
         f"Имя: {user_name}. Дата рождения: {pretty_date}. Знак: {zodiac_label}. "
-        "Дай общий тон дня, предостережение и маленький совет."
+        f"Сделай два блока: Сегодня ({today_label}) и Завтра ({tomorrow_label}). "
+        "Для каждого блока дай общий тон дня, предостережение и маленький совет."
     )
-    title = f"Ваш ежедневный гороскоп, {zodiac_label}"
+    title = f"Гороскоп на сегодня и завтра, {zodiac_label}"
     return prompt, title
 
 
