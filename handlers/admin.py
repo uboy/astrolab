@@ -18,7 +18,9 @@ from utils.constants import (
     BTN_ADMIN_USER_SEND,
     MSG_ADMIN_TIME_OK, MSG_ADMIN_INVALID_TIME, MSG_ADMIN_NO_USER,
     BTN_YES, BTN_NO, BTN_ADMIN_SETTINGS, BTN_ADMIN_LOGS,
-    BTN_ADMIN_SUBSCRIBED, BTN_ADMIN_SEND_SUBS, BTN_ADMIN_PRICES
+    BTN_ADMIN_SUBSCRIBED, BTN_ADMIN_SEND_SUBS, BTN_ADMIN_PRICES, BTN_ADMIN_COMPANY_PARAMS, BTN_ADMIN_ABOUT_BOT,
+    BTN_ADMIN_COMPANY_PARAMS_TEMPLATE,
+    MSG_ADMIN_COMPANY_PARAMS_PROMPT, MSG_ADMIN_COMPANY_PARAMS_SAVED, MSG_ADMIN_COMPANY_PARAMS_TEMPLATE
 )
 from keyboards.menus import menu_for
 from utils.user_helpers import save_user
@@ -39,6 +41,7 @@ class AdminStates(StatesGroup):
     waiting_delete_confirm = State()
     waiting_user_message = State()
     waiting_price = State()
+    waiting_company_params = State()
 
 
 # -----------------------------
@@ -52,13 +55,24 @@ def _admin_keyboard(extra_buttons=None):
     rows = [
         [KeyboardButton(text=BTN_ADMIN_USERS), KeyboardButton(text=BTN_ADMIN_SUBSCRIBED)],
         [KeyboardButton(text=BTN_ADMIN_SEND_SUBS), KeyboardButton(text=BTN_ADMIN_BROADCAST)],
-        [KeyboardButton(text=BTN_ADMIN_PRICES)],
+        [KeyboardButton(text=BTN_ADMIN_PRICES), KeyboardButton(text=BTN_ADMIN_COMPANY_PARAMS)],
         [KeyboardButton(text=BTN_ADMIN_SETTINGS), KeyboardButton(text=BTN_ADMIN_LOGS)],
+        [KeyboardButton(text=BTN_ADMIN_ABOUT_BOT)],
         [KeyboardButton(text=BTN_CANCEL)]
     ]
     if extra_buttons:
         rows.insert(0, [KeyboardButton(text=btn) for btn in extra_buttons])
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
+
+
+def _company_params_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=BTN_ADMIN_COMPANY_PARAMS_TEMPLATE)],
+            [KeyboardButton(text=BTN_CANCEL)],
+        ],
+        resize_keyboard=True
+    )
 
 
 def _user_action_keyboard(sub_active: bool):
@@ -285,6 +299,19 @@ async def admin_home(message: Message, state: FSMContext):
         )
         await message.answer(settings_text, reply_markup=_admin_keyboard())
         return
+    if text == BTN_ADMIN_ABOUT_BOT:
+        from utils.version import get_bot_version
+        await message.answer(f"🤖 Версия бота: {get_bot_version()}", reply_markup=_admin_keyboard())
+        return
+    if text == BTN_ADMIN_COMPANY_PARAMS:
+        from utils.company_params import get_company_params_text
+        current_text = await get_company_params_text()
+        await state.set_state(AdminStates.waiting_company_params)
+        await message.answer(
+            MSG_ADMIN_COMPANY_PARAMS_PROMPT.format(text=current_text),
+            reply_markup=_company_params_keyboard()
+        )
+        return
 
     if text == BTN_ADMIN_LOGS:
         try:
@@ -358,6 +385,19 @@ async def browse_users(message: Message, state: FSMContext):
             f"TIMEZONE: {getattr(settings, 'TIMEZONE', '-')}"
         )
         await message.answer(settings_text, reply_markup=_admin_keyboard())
+        return
+    if text == BTN_ADMIN_ABOUT_BOT:
+        from utils.version import get_bot_version
+        await message.answer(f"🤖 Версия бота: {get_bot_version()}", reply_markup=_admin_keyboard())
+        return
+    if text == BTN_ADMIN_COMPANY_PARAMS:
+        from utils.company_params import get_company_params_text
+        current_text = await get_company_params_text()
+        await state.set_state(AdminStates.waiting_company_params)
+        await message.answer(
+            MSG_ADMIN_COMPANY_PARAMS_PROMPT.format(text=current_text),
+            reply_markup=_company_params_keyboard()
+        )
         return
     if text == BTN_ADMIN_LOGS:
         try:
@@ -642,11 +682,35 @@ async def admin_set_price(message: Message, state: FSMContext):
 
 
 # -----------------------------
+# Обновление параметров компании
+# -----------------------------
+@router.message(AdminStates.waiting_company_params)
+async def admin_set_company_params(message: Message, state: FSMContext):
+    if message.text.strip().lower() == BTN_CANCEL.lower():
+        await state.clear()
+        await message.answer(MSG_ACTION_CANCELLED, reply_markup=_admin_keyboard())
+        return
+    if message.text.strip() == BTN_ADMIN_COMPANY_PARAMS_TEMPLATE:
+        from utils.constants import DEFAULT_COMPANY_PARAMS_TEXT
+        await message.answer(MSG_ADMIN_COMPANY_PARAMS_TEMPLATE, reply_markup=_company_params_keyboard())
+        await message.answer(DEFAULT_COMPANY_PARAMS_TEXT, reply_markup=_company_params_keyboard())
+        return
+    text = message.text.strip()
+    if not text:
+        await message.answer("Текст не должен быть пустым. Введите новый текст или «Отмена».", reply_markup=_company_params_keyboard())
+        return
+    from utils.company_params import set_company_params_text
+    await set_company_params_text(text)
+    await message.answer(MSG_ADMIN_COMPANY_PARAMS_SAVED, reply_markup=_admin_keyboard())
+    await state.clear()
+
+
+# -----------------------------
 # Отмена действия
 # -----------------------------
 @router.message(
     F.text == BTN_CANCEL,
-    StateFilter(AdminStates.home, AdminStates.browsing_users, AdminStates.user_actions, AdminStates.waiting_update_time_user, AdminStates.waiting_broadcast, AdminStates.waiting_delete_confirm, AdminStates.waiting_user_message, AdminStates.waiting_price)
+    StateFilter(AdminStates.home, AdminStates.browsing_users, AdminStates.user_actions, AdminStates.waiting_update_time_user, AdminStates.waiting_broadcast, AdminStates.waiting_delete_confirm, AdminStates.waiting_user_message, AdminStates.waiting_price, AdminStates.waiting_company_params)
 )
 async def admin_cancel(message: Message, state: FSMContext):
     await state.clear()

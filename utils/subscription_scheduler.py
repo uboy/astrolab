@@ -136,7 +136,7 @@ async def _process_once(bot, force: bool = False) -> int:
                 prompt, title = await _build_horoscope_prompt(user)
                 response = await ask_ollama(prompt)
                 text = response if response.strip() else title
-                await bot.send_message(int(uid), f"{title}\n\n{text}")
+                await bot.send_message(int(uid), f"{title}\n\n{text}", parse_mode="HTML")
                 # списываем оплату за отправку
                 user = await decrement_user_limit(int(uid), price=sub_price, feature="subscription_send", details={"date": today_iso})
                 sub["last_sent"] = today_iso
