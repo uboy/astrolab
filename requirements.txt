@@ -3,3 +3,5 @@ pydantic>=2.0
 python-dotenv
 httpx
 pydantic-settings
+python-docx
+pypdf

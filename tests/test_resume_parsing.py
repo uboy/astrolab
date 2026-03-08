@@ -4,6 +4,7 @@ import pytest
 
 import utils.resume_ingest as resume_ingest
 import utils.resume_parser as resume_parser
+import utils.candidate_compatibility as candidate_compat
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "resumes"
@@ -128,7 +129,6 @@ def test_parse_resume_text_edge_cases(filename):
 
 
 def test_merge_candidate_profile_prioritizes_user_input():
-    import utils.candidate_compatibility as candidate_compat
     user_input = {"email": "new@example.com", "experience_years": 5}
     resume_data = {"email": "old@example.com", "experience_years": 2}
     try:
@@ -137,3 +137,36 @@ def test_merge_candidate_profile_prioritizes_user_input():
         pytest.xfail("candidate_compatibility.merge_candidate_profile not implemented yet")
     assert merged["email"] == "new@example.com"
     assert merged["experience_years"] == 5
+
+
+def test_parse_resume_text_extracts_core_profile_fields():
+    text = (
+        "Иван Петров\n"
+        "Пол: муж\n"
+        "Возраст: 29\n"
+        "Опыт: 6 лет\n"
+        "Позиция: Backend Developer\n"
+        "Локация: Москва\n"
+        "Навыки: Python, FastAPI, PostgreSQL\n"
+    )
+    data = resume_parser.parse_resume_text(text)
+    assert data.get("first_name") == "Иван"
+    assert data.get("last_name") == "Петров"
+    assert data.get("gender") == "male"
+    assert data.get("age") == 29
+    assert data.get("experience_years") == 6.0
+    assert data.get("desired_role") == "Backend Developer"
+    assert data.get("location") == "Москва"
+
+
+def test_humorous_response_contains_summary_details():
+    profile = {
+        "first_name": "Иван",
+        "last_name": "Петров",
+        "experience_years": 4.5,
+        "skills": ["Python", "SQL"],
+    }
+    response = candidate_compat.build_humorous_response(profile, 72, ["Опыт соответствует ожиданиям"])
+    assert "Иван Петров" in response
+    assert "опыт: 4.5" in response
+    assert "Скор: 72/100" in response

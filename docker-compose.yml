@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        BOT_VERSION: ${BOT_VERSION:-unknown}
     env_file:
       - .env
     volumes:

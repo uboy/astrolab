@@ -1,5 +1,5 @@
-step: 15
+step: 16
 date: 2026-02-11
-member: dev_shvechikov
-commit: 40c8ae4
-subject: Add candidate compatibility feature and resume parsing
+member: dev_luzhbina
+commit: da015d3
+subject: Improve resume extraction and guard candidate compatibility parsing
