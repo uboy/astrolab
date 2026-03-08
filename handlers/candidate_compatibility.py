@@ -12,12 +12,12 @@ from utils.constants import (
     MSG_NO_FREE_PAID, MSG_CANDIDATE_COMPATIBILITY_GREETING,
     MSG_CANDIDATE_TEXT_RESUME_GUIDE, MSG_CANDIDATE_TEXT_RESUME_PROMPT,
     MSG_CANDIDATE_RESUME_PROMPT, MSG_CANDIDATE_COLLECTED, MSG_CANDIDATE_FILE_ERROR,
-    MSG_CANDIDATE_EXPECT_FILE, MSG_CANDIDATE_PARSE_EMPTY,
+    MSG_CANDIDATE_EXPECT_FILE, MSG_OLLAMA_CANDIDATE_ERROR,
     DEFAULT_USER_NAME
 )
 from utils.button_matchers import is_candidate_compatibility_button
 from utils.user_helpers import check_user_limit, get_user_name, get_user, save_user
-from utils.message_helpers import format_response_with_balance
+from utils.message_helpers import format_response_with_balance, process_ollama_with_progress
 from utils.rate_limit import check_rate_limit
 from utils.pricing_helpers import ensure_balance_and_charge, show_price_info
 from keyboards.menus import menu_for, cancel_menu
@@ -25,6 +25,8 @@ from utils.resume_ingest import extract_resume_text
 from utils.resume_parser import parse_resume_text
 from utils.candidate_compatibility import merge_candidate_profile, score_compatibility, build_humorous_response
 from utils.company_params import get_company_params_text, parse_company_params
+from utils.prompts import CANDIDATE_COMPATIBILITY_PROMPT, DISCLAIMER
+from utils.ollama import ask_ollama
 
 router = Router()
 
@@ -67,17 +69,17 @@ async def collect_resume(message: Message, state: FSMContext, bot: Bot):
             await message.answer(MSG_CANDIDATE_FILE_ERROR, reply_markup=cancel_menu)
             return
 
-        await run_candidate_compatibility(message, state, resume_text=text, source="file")
+        await run_candidate_compatibility(message, state, bot, resume_text=text, source="file")
         return
 
     if not message.text or not message.text.strip():
         await message.answer(MSG_CANDIDATE_EXPECT_FILE, reply_markup=cancel_menu)
         return
     text = message.text.strip()
-    await run_candidate_compatibility(message, state, resume_text=text, source="text")
+    await run_candidate_compatibility(message, state, bot, resume_text=text, source="text")
 
 
-async def run_candidate_compatibility(message: Message, state: FSMContext, resume_text: str, source: str):
+async def run_candidate_compatibility(message: Message, state: FSMContext, bot: Bot, resume_text: str, source: str):
     user, has_limit = await check_user_limit(message.from_user.id, message.from_user)
     if not has_limit:
         await message.answer(MSG_NO_FREE_PAID, reply_markup=menu_for(message.from_user.id))
@@ -92,9 +94,6 @@ async def run_candidate_compatibility(message: Message, state: FSMContext, resum
         return
 
     resume_data = parse_resume_text(resume_text) if resume_text else {}
-    if not _has_core_candidate_fields(resume_data):
-        await message.answer(MSG_CANDIDATE_PARSE_EMPTY, reply_markup=cancel_menu)
-        return
 
     charged = await ensure_balance_and_charge(
         message,
@@ -120,8 +119,23 @@ async def run_candidate_compatibility(message: Message, state: FSMContext, resum
     params_text = await get_company_params_text()
     company_params = parse_company_params(params_text)
 
-    score, reasons = score_compatibility(profile, company_params)
-    response = build_humorous_response(profile, score, reasons)
+    prompt = CANDIDATE_COMPATIBILITY_PROMPT.format(
+        company_params=params_text,
+        resume_text=resume_text[:12000],
+        disclaimer=DISCLAIMER,
+    )
+    ai_response = await process_ollama_with_progress(
+        bot,
+        message.chat.id,
+        ask_ollama,
+        prompt,
+    )
+    if ai_response and ai_response.strip():
+        response = ai_response
+    else:
+        score, reasons = score_compatibility(profile, company_params)
+        response = build_humorous_response(profile, score, reasons)
+        response = f"{response}\n\n{MSG_OLLAMA_CANDIDATE_ERROR}"
 
     await message.answer(
         format_response_with_balance(response, user),
@@ -129,12 +143,3 @@ async def run_candidate_compatibility(message: Message, state: FSMContext, resum
         parse_mode="HTML"
     )
     await state.clear()
-
-
-def _has_core_candidate_fields(data: dict) -> bool:
-    if not data:
-        return False
-    has_name = bool(data.get("first_name") and data.get("last_name"))
-    has_exp = data.get("experience_years") is not None
-    has_skills = bool(data.get("skills"))
-    return has_name or has_exp or has_skills
