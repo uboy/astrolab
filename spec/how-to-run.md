@@ -1,30 +1,53 @@
-# How to run
+# Инструкция по запуску
 
-## Prerequisites
-- Python 3.11+ (Dockerfile uses `python:3.11-slim`). Evidence: `Dockerfile`.
-- Telegram bot token and chat access. Evidence: `utils/config.py:Settings.BOT_TOKEN`.
-- Ollama server reachable at `OLLAMA_URL` with the configured model(s). Evidence: `utils/config.py:Settings.OLLAMA_URL`, `utils/config.py:Settings.OLLAMA_MODEL`, `utils/ollama.py:ask_ollama`.
+## Требования
+- **Python**: Версия 3.11 или выше.
+- **Ollama**: Установленная и запущенная локально (или на доступном сервере).
+- **Docker & Docker Compose**: (Опционально) для запуска в контейнерах.
 
-## Install steps
-- Create a virtual environment and install dependencies from `requirements.txt`. Evidence: `requirements.txt`.
+## Локальный запуск (без Docker)
 
-## Config / environment variables
-- Required (must be set):
-  - `BOT_TOKEN` (Telegram bot token). Evidence: `utils/config.py:Settings.BOT_TOKEN`.
-  - `OLLAMA_URL` (Ollama endpoint; `/api/generate` expected for text). Evidence: `utils/config.py:Settings.OLLAMA_URL`, `utils/ollama.py:ask_ollama`.
-  - `OLLAMA_MODEL` (default text model). Evidence: `utils/config.py:Settings.OLLAMA_MODEL`.
-  - `RATE_LIMIT_PER_MIN`, `RATE_LIMIT_PER_HOUR`, `FREE_MESSAGES_COUNT`, `ADMINS`. Evidence: `utils/config.py:Settings`.
-    Note: rate limit env vars are currently unused; limits are hard-coded in `utils/constants.py`. Evidence: `utils/rate_limit.py:check_rate_limit`, `utils/constants.py:OLLAMA_PER_MIN`, `utils/constants.py:OTHER_PER_MIN`.
-- Optional:
-  - `OLLAMA_VISION_MODEL` (defaults to `qwen3-vl:32b`). Evidence: `utils/config.py:Settings.OLLAMA_VISION_MODEL`.
-  - `TIMEZONE` (defaults to `local`). Evidence: `utils/config.py:Settings.TIMEZONE`, `utils/subscription_scheduler.py:_detect_tz`.
-  - `LOG_LEVEL` (defaults to `ERROR_WARNING`). Evidence: `utils/config.py:Settings.LOG_LEVEL`, `utils/logging_config.py:get_log_level`.
+1.  **Клонирование репозитория**:
+    ```bash
+    git clone <url_репозитория>
+    cd astrolab-bot
+    ```
 
-## Run locally
-- `python main.py` (starts polling and the subscription scheduler). Evidence: `main.py:main`.
+2.  **Настройка окружения**:
+    ```bash
+    python -m venv .venv
+    # Windows:
+    .venv\Scripts\activate
+    # Linux/Mac:
+    source .venv/bin/activate
+    ```
 
-## Run with Docker
-- Build and run the container; volumes should mount `data/` and `logs/` if you want persistence. Evidence: `Dockerfile`, `docker-compose.yml`.
+3.  **Установка зависимостей**:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-## Run tests
-- Unknown (no tests found in repo).
+4.  **Конфигурация**:
+    Создайте файл `.env` на основе `.env.example` и заполните его:
+    - `BOT_TOKEN`: Токен вашего бота от @BotFather.
+    - `ADMINS`: Список ID администраторов через запятую.
+    - `OLLAMA_URL`: URL API Ollama (обычно http://localhost:11434/api/generate).
+
+5.  **Запуск**:
+    ```bash
+    python main.py
+    ```
+
+## Запуск через Docker
+
+1.  **Сборка и запуск**:
+    ```bash
+    docker-compose up -d --build
+    ```
+    *Примечание: Если Ollama запущена на хост-машине (не в Docker), используйте `http://host.docker.internal:11434` в качестве URL.*
+
+## Тестирование
+Для запуска тестов используйте:
+```bash
+pytest
+```

@@ -1,5 +1,0 @@
-step: 18
-date: 2026-02-12
-member: dev_luzhbina
-commit: 34ff217
-subject: feat(candidate): expand mystic analysis and tighten birthdate parsing
