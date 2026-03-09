@@ -60,12 +60,43 @@ def parse_company_params(text: str) -> dict:
     elif "черепах" in lowered:
         params["dev_speed"] = "turtle"
 
+    location_match = re.search(r"(?:локация|локации|location)\s*[:\-]?\s*([^\n]+)", text, re.IGNORECASE)
+    if location_match:
+        parts = re.split(r"[,;/|]", location_match.group(1))
+        locations = [p.strip(" .;") for p in parts if p.strip(" .;")]
+        if locations:
+            params["preferred_locations"] = locations[:5]
+
+    element_match = re.search(r"(?:стихия|element)\s*[:\-]?\s*(огонь|вода|воздух|земля|fire|water|air|earth)", lowered)
+    if element_match:
+        value = element_match.group(1)
+        element_map = {
+            "огонь": "fire",
+            "вода": "water",
+            "воздух": "air",
+            "земля": "earth",
+            "fire": "fire",
+            "water": "water",
+            "air": "air",
+            "earth": "earth",
+        }
+        params["cosmic_element"] = element_map.get(value, value)
+
+    destiny_match = re.search(r"(?:число\s*судьбы|destiny\s*number)\s*[:\-]?\s*(\d{1,2})", lowered)
+    if destiny_match:
+        num = int(destiny_match.group(1))
+        params["company_destiny_number"] = max(1, min(9, num))
+
+    tarot_match = re.search(r"(?:карта\s*таро|tarot\s*card)\s*[:\-]?\s*([^\n,.;]+)", text, re.IGNORECASE)
+    if tarot_match:
+        params["company_tarot_card"] = tarot_match.group(1).strip()
+
     rituals = []
     for line in text.splitlines():
         if "ритуал" in line.lower() or "ритуалы" in line.lower():
-            parts = re.split(r"[:,]", line, maxsplit=1)
-            if len(parts) == 2:
-                rituals.extend([p.strip() for p in parts[1].split(",") if p.strip()])
+            match = re.search(r"ритуал\w*\s*:\s*(.+)$", line, re.IGNORECASE)
+            if match:
+                rituals.extend([p.strip(" .;") for p in match.group(1).split(",") if p.strip(" .;")])
     if rituals:
         params["rituals"] = rituals
 
